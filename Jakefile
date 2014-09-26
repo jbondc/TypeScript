@@ -9,6 +9,7 @@ var compilerDirectory = "src/compiler/";
 var servicesDirectory = "src/services/";
 var harnessDirectory = "src/harness/";
 var libraryDirectory = "src/lib/";
+var apiDirectory = "src/api";
 var scriptsDirectory = "scripts/";
 var docDirectory = "doc/";
 
@@ -244,13 +245,34 @@ compileFile(servicesFile, servicesSources, [builtLocalDirectory, copyright].conc
 desc("Builds the full compiler and services");
 task("local", ["generate-diagnostics", "lib", tscFile, servicesFile]);
 
+// Build for the compiler api for public distribution (node)
+desc("Builds the compiler public api");
+task("api", ["local"], function(){
+
+    var apiTargets = ['node'],
+        i,
+        name;
+
+    for(var i in apiTargets) {
+        name = apiTargets[i];
+        var sourceFiles = [
+            path.join(builtLocalDirectory, compilerFilename),
+            path.join(apiDirectory, name + ".js"),
+        ]
+        // e.g. built/local/tsc_node.js
+        var targetFile = path.join(builtLocalDirectory, path.basename(compilerFilename, ".js") + "_" + name + ".js");
+
+        concatenateFiles(targetFile, sourceFiles);
+    }
+    
+    // Write to package.json?
+});
 
 // Local target to build the compiler and services
 desc("Emit debug mode files with sourcemaps");
 task("debug", function() {
         useDebugMode = true;
 });
-
 
 // Set the default task to "local"
 task("default", ["local"]);
@@ -307,7 +329,7 @@ task("LKG", libraryTargets, function() {
     }
     // Copy all the targets into the LKG directory
     jake.mkdirP(LKGDirectory);
-    for (i in expectedFiles) {
+    for (var i in expectedFiles) {
         jake.cpR(expectedFiles[i], LKGDirectory);
     }
     //var resourceDirectories = fs.readdirSync(builtLocalResourcesDirectory).map(function(p) { return path.join(builtLocalResourcesDirectory, p); });

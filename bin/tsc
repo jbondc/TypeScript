@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('./tsc.js')
+require('./tsc_node.js')
