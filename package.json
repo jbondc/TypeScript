@@ -25,7 +25,7 @@
 		"url" : "https://github.com/Microsoft/TypeScript.git"  
 	},
 	"preferGlobal" : true,
-	"main" : "./bin/tsc_node.js",
+	"main" : "./bin/typescipt_node.js",
 	"bin" : { 
 		"tsc" : "./bin/tsc" 
 	},

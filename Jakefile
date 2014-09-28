@@ -248,22 +248,20 @@ task("local", ["generate-diagnostics", "lib", tscFile, servicesFile]);
 // Build for the compiler api for public distribution (node)
 desc("Builds the compiler public api");
 task("api", ["local"], function(){
+    
+    // Node "typescript" module api
+    var name = "typescript_node";
+    var tscFile = path.join(builtLocalDirectory, compilerFilename);
+    var targetFile = path.join(builtLocalDirectory, name + ".js");
 
-    var apiTargets = ['node'],
-        i,
-        name;
+    var content = fs.readFileSync(tscFile, {encoding: 'utf8'});
+    content = content.replace("ts.executeCommandLine(sys.args);", "");
 
-    for(var i in apiTargets) {
-        name = apiTargets[i];
-        var sourceFiles = [
-            path.join(builtLocalDirectory, compilerFilename),
-            path.join(apiDirectory, name + ".js"),
-        ]
-        // e.g. built/local/tsc_node.js
-        var targetFile = path.join(builtLocalDirectory, path.basename(compilerFilename, ".js") + "_" + name + ".js");
-
-        concatenateFiles(targetFile, sourceFiles);
-    }
+    // So that require("typescript") looks relative to module file, for "lib.d.ts"
+    content = content.replace(/getDefaultLibFilename:[^}]+}/g, 'getDefaultLibFilename: function(){ return ts.combinePaths(__dirname, "lib.d.ts"); }');
+    content += fs.readFileSync(path.join(apiDirectory, name + ".js"), {encoding: 'utf8'});
+    
+    fs.writeFileSync(targetFile, content);
     
     // Write to package.json?
 });
