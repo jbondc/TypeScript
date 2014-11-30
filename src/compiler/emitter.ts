@@ -622,7 +622,8 @@ module ts {
                 // If the node is exported 
                 if (node.flags & NodeFlags.Export) {
                     write("export ");
-                }
+				}
+				console.log(comment)
 
                 if (node.kind !== SyntaxKind.InterfaceDeclaration) {
                     write("declare ");
@@ -2492,11 +2493,17 @@ module ts {
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
                     emitCaptureThisForNodeIfNecessary(node.parent);
-                }
+				}
+
+				console.log("EMIT BLOCK")
+				console.log(node)
+				console.log(node.parent)
                 emitLines(node.statements);
                 decreaseIndent();
                 writeLine();
-                emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
+				emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
+				//emitTrailingComments(node);
+
                 scopeEmitEnd();
             }
 
@@ -3527,6 +3534,8 @@ module ts {
                 }
 
                 // Check if the node can be emitted regardless of the ScriptTarget
+               console.log("EMIT " + node.kind +" "+ SyntaxKind[node.kind])
+
                 switch (node.kind) {
                     case SyntaxKind.Identifier:
                         return emitIdentifier(<Identifier>node);
@@ -3725,9 +3734,13 @@ module ts {
                 emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator*/ true, newLine, writeComment);
             }
 
-            function emitTrailingDeclarationComments(node: Node) {
+			function emitTrailingDeclarationComments(node: Node) {
+				console.log("EMIT TRAILING "+ node.kind)
+
                 // Emit the trailing comments only if the parent's end doesn't match
-                if (node.parent.kind === SyntaxKind.SourceFile || node.end !== node.parent.end) {
+				if (node.parent.kind === SyntaxKind.SourceFile || node.end !== node.parent.end) {
+					console.log("YES " + node.end)
+					console.log(currentSourceFile.text)
                     var trailingComments = getTrailingCommentRanges(currentSourceFile.text, node.end);
                     // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
                     emitComments(currentSourceFile, writer, trailingComments, /*trailingSeparator*/ false, newLine, writeComment);                    
