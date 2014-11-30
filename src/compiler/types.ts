@@ -819,8 +819,8 @@ module ts {
     }
 
     export interface CommentRange extends TextRange {
-		prefixWhitespace?: string;
-		trailingWhitespace?: string;
+        prefixWhitespace?: string;
+        trailingWhitespace?: string;
     }
 
     // Source files are declarations when they are external modules.

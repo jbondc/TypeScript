@@ -5,8 +5,8 @@
 /// <reference path="binder.ts"/>
 
 module ts {
-	// Track comments already emmited, used in emitComments()
-	var mEmitCommentAtPos: { [pos: string]: boolean } = {}
+    // Track comments already emmited, used in emitComments()
+    var mEmitCommentAtPos: { [pos: string]: boolean } = {}
 
     interface EmitTextWriter {
         write(s: string): void;
@@ -86,9 +86,9 @@ module ts {
                 if (lineStart) {
                     output += getIndentString(indent);
                     lineStart = false;
-				}
+                }
 
-				//console.log("--> "+ s)
+                console.log("--> "+ s)
                 output += s;
             }
         }
@@ -97,7 +97,8 @@ module ts {
             if (s !== undefined) {
                 if (lineStart) {
                     lineStart = false;
-				}
+                }
+                console.log("RAW --> " + s + " " + s.length)
                 output += s;
             }
         }
@@ -115,6 +116,7 @@ module ts {
 
         function writeLine() {
             if (!lineStart) {
+                console.log("writeLine()")
                 output += newLine;
                 lineCount++;
                 linePos = output.length;
@@ -149,25 +151,27 @@ module ts {
     function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], newLine: string,
                           writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void) {
 
-		forEach(comments, comment => {
-			if (mEmitCommentAtPos[comment.pos])
-				return;
+        forEach(comments, comment => {
+            if (mEmitCommentAtPos[comment.pos])
+                return;
 
-			mEmitCommentAtPos[comment.pos] = true
+            mEmitCommentAtPos[comment.pos] = true
 
-			// Replace newLine matches with compiler/emit newLine, TODO: scanner could just accumulate whitespace chars in array
-			if (comment.prefixWhitespace)
-				writer.rawWrite(comment.prefixWhitespace.replace(/\r\n|\n|\r/g, newLine));
+            console.log(comment)
+
+            // Replace newLine matches with compiler/emit newLine, TODO: scanner could just accumulate whitespace chars in array
+            if (comment.prefixWhitespace)
+                writer.rawWrite(comment.prefixWhitespace.replace(/\r\n|\n|\r/g, newLine));
 
             writeComment(currentSourceFile, writer, comment, newLine);
            
-			if (comment.trailingWhitespace)
-				writer.rawWrite(comment.trailingWhitespace.replace(/\r\n|\n|\r/g, newLine));
-		});
+            if (comment.trailingWhitespace)
+                writer.rawWrite(comment.trailingWhitespace.replace(/\r\n|\n|\r/g, newLine));
+        });
     }
 
     function writeCommentRange(currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string){
-		if (currentSourceFile.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk) {
+        if (currentSourceFile.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk) {
             var firstCommentLineAndCharacter = currentSourceFile.getLineAndCharacterFromPosition(comment.pos);
             var firstCommentLineIndent: number;
             for (var pos = comment.pos, currentLine = firstCommentLineAndCharacter.line; pos < comment.end; currentLine++) {
@@ -223,7 +227,7 @@ module ts {
                 pos = nextLineStart;
             }
         }
-		else {
+        else {
             // Single line comment of style //....
             writer.write(currentSourceFile.text.substring(comment.pos, comment.end));
         }
@@ -616,7 +620,7 @@ module ts {
                 // If the node is exported 
                 if (node.flags & NodeFlags.Export) {
                     write("export ");
-				}
+                }
                 if (node.kind !== SyntaxKind.InterfaceDeclaration) {
                     write("declare ");
                 }
@@ -1341,6 +1345,7 @@ module ts {
         }
 
         function emitNode(node: Node) {
+
             switch (node.kind) {
                 case SyntaxKind.Constructor:
                 case SyntaxKind.FunctionDeclaration:
@@ -1532,8 +1537,8 @@ module ts {
             /** Sourcemap data that will get encoded */
             var sourceMapData: SourceMapData;
 
-			// TODO: remove 'mEmitCommentAtPos' and unify api around this cache of comments
-			var mEmitComments: { [pos: number]: CommentRange[] } = {}
+            // TODO: remove 'mEmitCommentAtPos' and unify api around this cache of comments
+            var mEmitComments: { [pos: number]: CommentRange[] } = {}
 
             function initializeEmitterWithSourceMaps() {
                 var sourceMapDir: string; // The directory in which sourcemap will be
@@ -2488,12 +2493,12 @@ module ts {
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
                     emitCaptureThisForNodeIfNecessary(node.parent);
-				}
+                }
 
                 emitLines(node.statements);
                 decreaseIndent();
                 writeLine();
-				emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
+                emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
 
                 scopeEmitEnd();
             }
@@ -2740,10 +2745,12 @@ module ts {
                 emitLeadingComments(node);
                 emitModuleMemberName(node);
                 emitOptional(" = ", node.initializer);
-				emitTrailingComments(node);
+                emitTrailingComments(node);
             }
 
             function emitVariableStatement(node: VariableStatement) {
+                console.log("EMIT LEADEING")
+
                 emitLeadingComments(node);
                 if (!(node.flags & NodeFlags.Export)) {
                     if (isLet(node)) {
@@ -3724,21 +3731,21 @@ module ts {
                 emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);
             }
 
-			function emitTrailingDeclarationComments(node: Node) {
-				// why does this work?
-				// deals with var foo="" // comment so emit of comment is after ; --> foo=""; // comment
-				if (node.parent.end === node.end)
-					return
+            function emitTrailingDeclarationComments(node: Node) {
+                // why does this work?
+                // deals with var foo="" // comment so emit of comment is after ; --> foo=""; // comment
+                if (node.parent.end === node.end)
+                    return
 
-				//console.log("EMIT TRAILING " + getSyntaxKindName(node.kind) + " " + node.kind)
-				//console.log(node)
+                //console.log("EMIT TRAILING " + getSyntaxKindName(node.kind) + " " + node.kind)
+                //console.log(node)
 
-				if (mEmitComments[node.end])
-					return;
+                if (mEmitComments[node.end])
+                    return;
 
-				mEmitComments[node.end] = getTrailingCommentRanges(currentSourceFile.text, node.end);
+                mEmitComments[node.end] = getTrailingCommentRanges(currentSourceFile.text, node.end);
 
-				emitComments(currentSourceFile, writer, mEmitComments[node.end], newLine, writeComment);                    
+                emitComments(currentSourceFile, writer, mEmitComments[node.end], newLine, writeComment);                    
             }
 
             function emitLeadingCommentsOfLocalPosition(pos: number) {

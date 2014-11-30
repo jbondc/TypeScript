@@ -380,29 +380,29 @@ module ts {
 
     // Extract comments from the given source text starting at the given position. Single-line comment ranges include the beginning '//' characters but not the ending line break. Multi-line comment
     // ranges include the beginning '/* and ending '*/' characters. The return value is undefined if no comments were found.
-	function getCommentRanges(text: string, pos: number, trailing: boolean): CommentRange[]{
+    function getCommentRanges(text: string, pos: number, trailing: boolean): CommentRange[]{
         var result: CommentRange[];
-		var comment: CommentRange
-		var prefix = ''
-		var trail = ''
+        var comment: CommentRange
+        var prefix = ''
+        var trail = ''
 
 		while (true) {
             var ch = text.charCodeAt(pos);
             switch (ch) {
-				case CharacterCodes.carriageReturn:
-					if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) {
-						prefix += text[pos]
-						pos++;
-					}
+                case CharacterCodes.carriageReturn:
+                    if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) {
+                        prefix += text[pos]
+                        pos++;
+                    }
                 case CharacterCodes.lineFeed:
-					prefix += text[pos]
-					pos++;
+                    prefix += text[pos]
+                    pos++;
                     continue;
                 case CharacterCodes.tab:
                 case CharacterCodes.verticalTab:
                 case CharacterCodes.formFeed:
-				case CharacterCodes.space:
-					prefix += text[pos]
+                case CharacterCodes.space:
+                    prefix += text[pos]
                     pos++;
                     continue;
                 case CharacterCodes.slash:
@@ -413,10 +413,10 @@ module ts {
                         if (nextChar === CharacterCodes.slash) {
                             while (pos < text.length) {
                                 if (isLineBreak(text.charCodeAt(pos))) {
-									trail += text[pos]
-									if (isLineBreak(text.charCodeAt(pos+1))) {
-										trail += text[pos+1]
-									}
+                                    trail += text[pos]
+                                    if (isLineBreak(text.charCodeAt(pos+1))) {
+                                        trail += text[pos+1]
+                                    }
                                     break;
                                 }
                                 pos++;
@@ -432,23 +432,23 @@ module ts {
                             }
                         }
 
-						if (!result) result = [];
+                        if (!result) result = [];
 
-						comment = { pos: startPos, end: pos }
-						if (prefix.length)
-							comment.prefixWhitespace = prefix
-						if (trail.length)
-							comment.trailingWhitespace = trail
+                        comment = { pos: startPos, end: pos }
+                        if (prefix.length)
+                            comment.prefixWhitespace = prefix
+                        if (trail.length)
+                            comment.trailingWhitespace = trail
 
-						result.push(comment);
-						prefix = ''
-						trail = ''
+                        result.push(comment);
+                        prefix = ''
+                        trail = ''
                         continue;
                     }
                     break;
-				default:
+                default:
                     if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch) || isLineBreak(ch))) {
-						prefix += text[pos]
+                        prefix += text[pos]
                         pos++;
                         continue;
                     }
@@ -458,7 +458,7 @@ module ts {
         }
     }
 
-	// TODO: export only getCommentRanges(text, pos) ?
+    // TODO: export only getCommentRanges(text, pos) ?
     export function getLeadingCommentRanges(text: string, pos: number): CommentRange[] {
         return getCommentRanges(text, pos, /*trailing*/ false);
     }
