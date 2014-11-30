@@ -5,6 +5,9 @@
 /// <reference path="binder.ts"/>
 
 module ts {
+	// Track comments already emmited, used in emitComments()
+	var mEmitCommentAtPos: { [pos: string]: boolean } = {}
+
     interface EmitTextWriter {
         write(s: string): void;
         writeTextOfNode(sourceFile: SourceFile, node: Node): void;
@@ -83,7 +86,9 @@ module ts {
                 if (lineStart) {
                     output += getIndentString(indent);
                     lineStart = false;
-                }
+				}
+
+				//console.log("--> "+ s)
                 output += s;
             }
         }
@@ -92,7 +97,7 @@ module ts {
             if (s !== undefined) {
                 if (lineStart) {
                     lineStart = false;
-                }
+				}
                 output += s;
             }
         }
@@ -141,38 +146,28 @@ module ts {
         return currentSourceFile.getLineAndCharacterFromPosition(pos).line;
     }
 
-    function emitNewLineBeforeLeadingComments(currentSourceFile: SourceFile, writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]) {
-        // If the leading comments start on different line than the start of node, write new line
-        if (leadingComments && leadingComments.length && node.pos !== leadingComments[0].pos &&
-            getLineOfLocalPosition(currentSourceFile, node.pos) !== getLineOfLocalPosition(currentSourceFile, leadingComments[0].pos)) {
-            writer.writeLine();
-        }
-    }
-
-    function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string,
+    function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], newLine: string,
                           writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void) {
-        var emitLeadingSpace = !trailingSeparator;
-        forEach(comments, comment => {
-            if (emitLeadingSpace) {
-                writer.write(" ");
-                emitLeadingSpace = false;
-            }
+
+		forEach(comments, comment => {
+			if (mEmitCommentAtPos[comment.pos])
+				return;
+
+			mEmitCommentAtPos[comment.pos] = true
+
+			// Replace newLine matches with compiler/emit newLine, TODO: scanner could just accumulate whitespace chars in array
+			if (comment.prefixWhitespace)
+				writer.rawWrite(comment.prefixWhitespace.replace(/\r\n|\n|\r/g, newLine));
+
             writeComment(currentSourceFile, writer, comment, newLine);
-            if (comment.hasTrailingNewLine) {
-                writer.writeLine();
-            }
-            else if (trailingSeparator) {
-                writer.write(" ");
-            }
-            else {
-                // Emit leading space to separate comment during next comment emit
-                emitLeadingSpace = true;
-            }
-        });
+           
+			if (comment.trailingWhitespace)
+				writer.rawWrite(comment.trailingWhitespace.replace(/\r\n|\n|\r/g, newLine));
+		});
     }
 
     function writeCommentRange(currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string){
-        if (currentSourceFile.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk) {
+		if (currentSourceFile.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk) {
             var firstCommentLineAndCharacter = currentSourceFile.getLineAndCharacterFromPosition(comment.pos);
             var firstCommentLineIndent: number;
             for (var pos = comment.pos, currentLine = firstCommentLineAndCharacter.line; pos < comment.end; currentLine++) {
@@ -228,7 +223,7 @@ module ts {
                 pos = nextLineStart;
             }
         }
-        else {
+		else {
             // Single line comment of style //....
             writer.write(currentSourceFile.text.substring(comment.pos, comment.end));
         }
@@ -489,9 +484,8 @@ module ts {
         function writeJsDocComments(declaration: Node) {
             if (declaration) {
                 var jsDocComments = getJsDocComments(declaration, currentSourceFile);
-                emitNewLineBeforeLeadingComments(currentSourceFile, writer, declaration, jsDocComments);
-                // jsDoc comments are emitted at /*leading comment1 */space/*leading comment*/space
-                emitComments(currentSourceFile, writer, jsDocComments, /*trailingSeparator*/ true, newLine, writeCommentRange);
+
+                emitComments(currentSourceFile, writer, jsDocComments, newLine, writeCommentRange);
             }
         }
 
@@ -623,8 +617,6 @@ module ts {
                 if (node.flags & NodeFlags.Export) {
                     write("export ");
 				}
-				console.log(comment)
-
                 if (node.kind !== SyntaxKind.InterfaceDeclaration) {
                     write("declare ");
                 }
@@ -1539,6 +1531,9 @@ module ts {
 
             /** Sourcemap data that will get encoded */
             var sourceMapData: SourceMapData;
+
+			// TODO: remove 'mEmitCommentAtPos' and unify api around this cache of comments
+			var mEmitComments: { [pos: number]: CommentRange[] } = {}
 
             function initializeEmitterWithSourceMaps() {
                 var sourceMapDir: string; // The directory in which sourcemap will be
@@ -2495,14 +2490,10 @@ module ts {
                     emitCaptureThisForNodeIfNecessary(node.parent);
 				}
 
-				console.log("EMIT BLOCK")
-				console.log(node)
-				console.log(node.parent)
                 emitLines(node.statements);
                 decreaseIndent();
                 writeLine();
 				emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
-				//emitTrailingComments(node);
 
                 scopeEmitEnd();
             }
@@ -2749,7 +2740,7 @@ module ts {
                 emitLeadingComments(node);
                 emitModuleMemberName(node);
                 emitOptional(" = ", node.initializer);
-                emitTrailingComments(node);
+				emitTrailingComments(node);
             }
 
             function emitVariableStatement(node: VariableStatement) {
@@ -3729,22 +3720,25 @@ module ts {
 
             function emitLeadingDeclarationComments(node: Node) {
                 var leadingComments = getLeadingCommentsToEmit(node);
-                emitNewLineBeforeLeadingComments(currentSourceFile, writer, node, leadingComments);
-                // Leading comments are emitted at /*leading comment1 */space/*leading comment*/space
-                emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator*/ true, newLine, writeComment);
+
+                emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);
             }
 
 			function emitTrailingDeclarationComments(node: Node) {
-				console.log("EMIT TRAILING "+ node.kind)
+				// why does this work?
+				// deals with var foo="" // comment so emit of comment is after ; --> foo=""; // comment
+				if (node.parent.end === node.end)
+					return
 
-                // Emit the trailing comments only if the parent's end doesn't match
-				if (node.parent.kind === SyntaxKind.SourceFile || node.end !== node.parent.end) {
-					console.log("YES " + node.end)
-					console.log(currentSourceFile.text)
-                    var trailingComments = getTrailingCommentRanges(currentSourceFile.text, node.end);
-                    // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
-                    emitComments(currentSourceFile, writer, trailingComments, /*trailingSeparator*/ false, newLine, writeComment);                    
-                }
+				//console.log("EMIT TRAILING " + getSyntaxKindName(node.kind) + " " + node.kind)
+				//console.log(node)
+
+				if (mEmitComments[node.end])
+					return;
+
+				mEmitComments[node.end] = getTrailingCommentRanges(currentSourceFile.text, node.end);
+
+				emitComments(currentSourceFile, writer, mEmitComments[node.end], newLine, writeComment);                    
             }
 
             function emitLeadingCommentsOfLocalPosition(pos: number) {
@@ -3757,9 +3751,8 @@ module ts {
                     // get the leading comments from the node
                     leadingComments = getLeadingCommentRanges(currentSourceFile.text, pos);
                 }
-                emitNewLineBeforeLeadingComments(currentSourceFile, writer, { pos: pos, end: pos }, leadingComments);
-                // Leading comments are emitted at /*leading comment1 */space/*leading comment*/space
-                emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator*/ true, newLine, writeComment);                
+
+                emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);                
             }
 
             function emitDetachedCommentsAtPosition(node: TextRange) {
@@ -3793,8 +3786,7 @@ module ts {
                         var astLine = getLineOfLocalPosition(currentSourceFile, skipTrivia(currentSourceFile.text, node.pos));
                         if (astLine >= lastCommentLine + 2) {
                             // Valid detachedComments
-                            emitNewLineBeforeLeadingComments(currentSourceFile, writer, node, leadingComments);
-                            emitComments(currentSourceFile, writer, detachedComments, /*trailingSeparator*/ true, newLine, writeComment);
+                            emitComments(currentSourceFile, writer, detachedComments, newLine, writeComment);
                             var currentDetachedCommentInfo = { nodePos: node.pos, detachedCommentEndPos: detachedComments[detachedComments.length - 1].end };
                             if (detachedCommentsInfo) {
                                 detachedCommentsInfo.push(currentDetachedCommentInfo);
@@ -3824,9 +3816,7 @@ module ts {
                     }
                 }
 
-                emitNewLineBeforeLeadingComments(currentSourceFile, writer, node, pinnedComments);
-                // Leading comments are emitted at /*leading comment1 */space/*leading comment*/space
-                emitComments(currentSourceFile, writer, pinnedComments, /*trailingSeparator*/ true, newLine, writeComment);
+                emitComments(currentSourceFile, writer, pinnedComments, newLine, writeComment);
             }
 
             if (compilerOptions.sourceMap) {

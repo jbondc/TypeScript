@@ -8,7 +8,7 @@ module ts {
     }
 
     // token > SyntaxKind.Identifer => token is a keyword
-    export const enum SyntaxKind {
+    export enum SyntaxKind {
         Unknown,
         EndOfFileToken,
         SingleLineCommentTrivia,
@@ -819,7 +819,8 @@ module ts {
     }
 
     export interface CommentRange extends TextRange {
-        hasTrailingNewLine?: boolean;
+		prefixWhitespace?: string;
+		trailingWhitespace?: string;
     }
 
     // Source files are declarations when they are external modules.

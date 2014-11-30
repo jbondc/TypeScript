@@ -378,45 +378,45 @@ module ts {
         }
     }
 
-    // Extract comments from the given source text starting at the given position. If trailing is false, whitespace is skipped until
-    // the first line break and comments between that location and the next token are returned. If trailing is true, comments occurring
-    // between the given position and the next line break are returned. The return value is an array containing a TextRange for each
-    // comment. Single-line comment ranges include the beginning '//' characters but not the ending line break. Multi-line comment
+    // Extract comments from the given source text starting at the given position. Single-line comment ranges include the beginning '//' characters but not the ending line break. Multi-line comment
     // ranges include the beginning '/* and ending '*/' characters. The return value is undefined if no comments were found.
-    function getCommentRanges(text: string, pos: number, trailing: boolean): CommentRange[] {
+	function getCommentRanges(text: string, pos: number, trailing: boolean): CommentRange[]{
         var result: CommentRange[];
-        var collecting = trailing || pos === 0;
-        while (true) {
+		var comment: CommentRange
+		var prefix = ''
+		var trail = ''
+
+		while (true) {
             var ch = text.charCodeAt(pos);
             switch (ch) {
-                case CharacterCodes.carriageReturn:
-                    if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) pos++;
+				case CharacterCodes.carriageReturn:
+					if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) {
+						prefix += text[pos]
+						pos++;
+					}
                 case CharacterCodes.lineFeed:
-                    pos++;
-                    if (trailing) {
-                        return result;
-                    }
-                    collecting = true;
-                    if (result && result.length) {
-                        result[result.length - 1].hasTrailingNewLine = true;
-                    }
+					prefix += text[pos]
+					pos++;
                     continue;
                 case CharacterCodes.tab:
                 case CharacterCodes.verticalTab:
                 case CharacterCodes.formFeed:
-                case CharacterCodes.space:
+				case CharacterCodes.space:
+					prefix += text[pos]
                     pos++;
                     continue;
                 case CharacterCodes.slash:
                     var nextChar = text.charCodeAt(pos + 1);
-                    var hasTrailingNewLine = false;
                     if (nextChar === CharacterCodes.slash || nextChar === CharacterCodes.asterisk) {
                         var startPos = pos;
                         pos += 2;
                         if (nextChar === CharacterCodes.slash) {
                             while (pos < text.length) {
                                 if (isLineBreak(text.charCodeAt(pos))) {
-                                    hasTrailingNewLine = true;
+									trail += text[pos]
+									if (isLineBreak(text.charCodeAt(pos+1))) {
+										trail += text[pos+1]
+									}
                                     break;
                                 }
                                 pos++;
@@ -431,18 +431,24 @@ module ts {
                                 pos++;
                             }
                         }
-                        if (collecting) {
-                            if (!result) result = [];
-                            result.push({ pos: startPos, end: pos, hasTrailingNewLine: hasTrailingNewLine });
-                        }
+
+						if (!result) result = [];
+
+						comment = { pos: startPos, end: pos }
+						if (prefix.length)
+							comment.prefixWhitespace = prefix
+						if (trail.length)
+							comment.trailingWhitespace = trail
+
+						result.push(comment);
+						prefix = ''
+						trail = ''
                         continue;
                     }
                     break;
-                default:
+				default:
                     if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch) || isLineBreak(ch))) {
-                        if (result && result.length && isLineBreak(ch)) {
-                            result[result.length - 1].hasTrailingNewLine = true;
-                        }
+						prefix += text[pos]
                         pos++;
                         continue;
                     }
@@ -452,6 +458,7 @@ module ts {
         }
     }
 
+	// TODO: export only getCommentRanges(text, pos) ?
     export function getLeadingCommentRanges(text: string, pos: number): CommentRange[] {
         return getCommentRanges(text, pos, /*trailing*/ false);
     }
