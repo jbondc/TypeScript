@@ -387,7 +387,7 @@ module ts {
         var trail = ''
 
 		while (true) {
-			var ch = text.charCodeAt(pos);
+            var ch = text.charCodeAt(pos);
             switch (ch) {
                 case CharacterCodes.carriageReturn:
                     if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) {
@@ -409,14 +409,14 @@ module ts {
                     var nextChar = text.charCodeAt(pos + 1);
                     if (nextChar === CharacterCodes.slash || nextChar === CharacterCodes.asterisk) {
                         var startPos = pos;
-						pos += 2;
+                        pos += 2;
                         if (nextChar === CharacterCodes.slash) {
                             while (pos < text.length) {
-								if (isLineBreak(text.charCodeAt(pos))) {
-									trail += text[pos]
+                                if (isLineBreak(text.charCodeAt(pos))) {
+                                    trail += text[pos]
                                     while (isLineBreak(text.charCodeAt(++pos))) {
                                         trail += text[pos]
-									}
+                                    }
                                     break;
                                 }
                                 pos++;
@@ -434,7 +434,7 @@ module ts {
 
                         if (!result) result = [];
 
-						comment = { pos: startPos, end: pos - trail.length }
+                        comment = { pos: startPos, end: pos - trail.length }
                         if (prefix.length)
                             comment.prefixWhitespace = prefix
                         if (trail.length)
