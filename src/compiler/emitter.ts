@@ -96,6 +96,7 @@ module ts {
                 }
 
                 output += s;
+                //console.log("--> " + s)
             }
         }
 
@@ -103,8 +104,17 @@ module ts {
             if (s !== undefined) {
                 // Trim single newline since we already emitted
                 if (wroteLine === true) {
-                    s = s.replace(/\r\n|\n|\r/, '')
+                    if (s === ' ') {
+
+                    } else if (s === newLine) {
+                        s = ''
+                    } else {
+                        s = s.replace(/\r\n|\n|\r/, '')
+                        //console.log("**REPLACE!")
+                    }
                     wroteLine = false
+                    if (s.length === 0)
+                        return;
                 }
 
                 // If last char is a line break, 'line start'
@@ -114,7 +124,7 @@ module ts {
                     lineStart = false;
                 }
 
-                //console.log("RAW --> " + s + " " + s.length)
+                //console.log("R-> " + s + "(L" + s.length + ")") 
                 output += s;
             }
         }
@@ -166,8 +176,37 @@ module ts {
         return currentSourceFile.getLineAndCharacterFromPosition(pos).line;
     }
 
+    function isCommentInline(comment: CommentRange) {
+        return (comment.leadingWhitespace && comment.leadingWhitespace.lastIndexOf("\n") === -1)
+    }
+ 
     function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], newLine: string,
-                          writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void) {
+        writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, trailing = false) {
+
+        //console.log(comments)
+
+        // Check trailing comments to exclude last attached comment 
+        if (trailing) {
+            var lastComment = comments[comments.length - 1]
+            if (lastComment.trailingWhitespace) {
+                var newlines = lastComment.trailingWhitespace.replace(/\r\n|\n|\r/g, newLine)
+
+                // A comment is considered attached if followed by a single newline, not inline & not last file comment
+                // emitLeadingDeclarationComments() of next token (if visible) will emit it
+                // Prevents emit of /* some comment */declare function(){}
+
+                //console.log( isCommentInline(lastComment) )
+
+                var isAttached = (newlines === newLine) && !isCommentInline(lastComment) && (lastComment.end + newLine.length) < currentSourceFile.text.length
+                if (isAttached) {
+
+                    while ((lastComment = comments.pop())) {
+                        if (lastComment.leadingWhitespace)
+                            break;
+                    }
+                }
+            }
+        }
 
         forEach(comments, comment => {
             if (mEmitCommentAtPos[comment.pos])
@@ -175,11 +214,11 @@ module ts {
 
             mEmitCommentAtPos[comment.pos] = true
 
-            //console.log(comment)
+           //console.log(comment)
 
             // Replace newLine matches with compiler/emit newLine
-            if (comment.prefixWhitespace)
-                writer.rawWrite(comment.prefixWhitespace.replace(/\r\n|\n|\r/g, newLine));
+            if (comment.leadingWhitespace)
+                writer.rawWrite(comment.leadingWhitespace.replace(/\r\n|\n|\r/g, newLine));
 
             writeComment(currentSourceFile, writer, comment, newLine);
 
@@ -378,6 +417,8 @@ module ts {
         var emitJsDocComments = compilerOptions.removeComments ? function (declaration: Node) { } : writeJsDocComments;
 
         var aliasDeclarationEmitInfo: AliasDeclarationEmitInfo[] = [];
+
+        mEmitCommentAtPos = {}
 
         function createAndSetNewTextWriterWithSymbolWriter(): EmitTextWriterWithSymbolWriter {
             var writer = <EmitTextWriterWithSymbolWriter>createTextWriter(newLine);
@@ -950,7 +991,7 @@ module ts {
             }
         }
 
-        function emitTerminateAndNewLine() {
+        function emitTerminateAndLine() {
             // Don't emit ;\n when at a newline, deals with: var foo = 1 /* info */
             if (writer.isAtLineStart() === false) {
                 write(";");
@@ -972,7 +1013,7 @@ module ts {
             emitJsDocComments(node);
             emitClassMemberDeclarationFlags(node);
             emitVariableDeclaration(<VariableDeclaration>node);
-            //emitTerminateAndNewLine()
+            //emitTerminateAndLine()
             write(";");
             writeLine();
         }
@@ -1062,9 +1103,9 @@ module ts {
                     write("var ");
                 }
                 emitCommaList(node.declarations, emitVariableDeclaration);
-                //emitTerminateAndNewLine()
+                //emitTerminateAndLine()
                 write(";");
-                ////console.log();
+                writeLine();
             }
         }
 
@@ -1385,10 +1426,6 @@ module ts {
         }
 
         function emitNode(node: Node) {
-
-            //console.log("EMIT NODE " + node.kind + ' ' + getSyntaxKindName(node.kind))
-
-
             switch (node.kind) {
                 case SyntaxKind.Constructor:
                 case SyntaxKind.FunctionDeclaration:
@@ -1541,11 +1578,11 @@ module ts {
             /** Emit Trailing comments of the node */
             var emitTrailingComments = compilerOptions.removeComments ? (node: Node) => { } : emitTrailingDeclarationComments;
 
-            var emitLeadingCommentsOfPosition = compilerOptions.removeComments ? (pos: number) => { } : emitLeadingCommentsOfLocalPosition;
+            var emitLeadingCommentsAtPosition = compilerOptions.removeComments ? (pos: number) => { } : emitLeadingCommentsAtLocalPosition;
 
             var detachedCommentsInfo: { nodePos: number; detachedCommentEndPos: number }[];
             /** Emit detached comments of the node */
-            var emitDetachedComments = compilerOptions.removeComments ? (node: TextRange) => { } : emitDetachedCommentsAtPosition;
+            var emitDetachedComments = compilerOptions.removeComments ? (node: TextRange) => { } : emitDetachedCommentsAt;
 
             /** Emits /// or pinned which is comment starting with /*! comments */
             var emitPinnedOrTripleSlashComments = compilerOptions.removeComments ? (node: Node) => { } : emitPinnedOrTripleSlashCommentsOfNode;
@@ -2931,7 +2968,7 @@ module ts {
                 scopeEmitStart(node);
                 increaseIndent();
 
-                emitDetachedComments(node.body.kind === SyntaxKind.Block ? (<Block>node.body).statements : node.body);
+                emitLeadingCommentsAtPosition(node.body.kind === SyntaxKind.Block ? (<Block>node.body).statements.pos : node.body.pos);
 
                 var startIndex = 0;
                 if (node.body.kind === SyntaxKind.Block) {
@@ -2968,7 +3005,7 @@ module ts {
 
                     writeLine();
                     if (node.body.kind === SyntaxKind.Block) {
-                        emitLeadingCommentsOfPosition((<Block>node.body).statements.end);
+                        emitLeadingCommentsAtPosition((<Block>node.body).statements.end);
                         decreaseIndent();
                         emitToken(SyntaxKind.CloseBraceToken, (<Block>node.body).statements.end);
                     }
@@ -3212,7 +3249,7 @@ module ts {
                     scopeEmitStart(node, "constructor");
                     increaseIndent();
                     if (ctor) {
-                        emitDetachedComments((<Block>ctor.body).statements);
+                        emitLeadingCommentsAtPosition((<Block>ctor.body).statements.pos);
                     }
                     emitCaptureThisForNodeIfNecessary(node);
                     if (ctor) {
@@ -3243,7 +3280,7 @@ module ts {
                     }
                     writeLine();
                     if (ctor) {
-                        emitLeadingCommentsOfPosition((<Block>ctor.body).statements.end);
+                        emitLeadingCommentsAtPosition((<Block>ctor.body).statements.end);
                     }
                     decreaseIndent();
                     emitToken(SyntaxKind.CloseBraceToken, ctor ? (<Block>ctor.body).statements.end : node.members.end);
@@ -3534,7 +3571,8 @@ module ts {
                 currentSourceFile = node;
                 // Start new file on new line
                 writeLine();
-                emitDetachedComments(node);
+
+                emitDetachedComments(<TextRange>node);
 
                 // emit prologue directives prior to __extends
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
@@ -3577,6 +3615,7 @@ module ts {
                 }
 
                 if (node.flags & NodeFlags.Ambient) {
+
                     return emitPinnedOrTripleSlashComments(node);
                 }
 
@@ -3782,40 +3821,49 @@ module ts {
             function emitLeadingDeclarationComments(node: Node) {
                 if (mEmitCommentAtPos[node.pos])
                     return;
-                //console.log("emitLeadingDeclarationComments() " + getSyntaxKindName(node.kind))
+                //console.log("emitLeadingComments() " + getSyntaxKindName(node.kind))
 
                 var leadingComments = getLeadingCommentsToEmit(node);
-
-                emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);
+                if (leadingComments)
+                    emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);
             }
 
             function emitTrailingDeclarationComments(node: Node) {
                 if (mEmitCommentAtPos[node.end])
                     return;
-                //console.log("emitTrailingDeclarationComments() " + getSyntaxKindName(node.kind))
-
+                //console.log("emitTrailingComments() " + getSyntaxKindName(node.kind))
 
                 var comments = getCommentRanges(currentSourceFile.text, node.end);
-
-                emitComments(currentSourceFile, writer, comments, newLine, writeComment);                    
+                if(comments)
+                    emitComments(currentSourceFile, writer, comments, newLine, writeComment, /* trailing */ true);                    
             }
 
-            function emitLeadingCommentsOfLocalPosition(pos: number) {
-                var leadingComments: CommentRange[];
-                if (hasDetachedComments(pos)) {
-                    // get comments without detached comments
-                    leadingComments = getLeadingCommentsWithoutDetachedComments();
-                }
-                else {
-                    // get the leading comments from the node
-                    leadingComments = getCommentRanges(currentSourceFile.text, pos);
-                }
+            function emitLeadingCommentsAtLocalPosition(pos: number) {
+                if (mEmitCommentAtPos[pos])
+                    return;
 
-                emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);                
+                var leadingComments = getCommentRanges(currentSourceFile.text, pos);
+                if (leadingComments)
+                    emitComments(currentSourceFile, writer, leadingComments, newLine, writeComment);                
             }
 
-            function emitDetachedCommentsAtPosition(node: TextRange) {
+            function emitDetachedCommentsAt(node: TextRange) {
+                if (mEmitCommentAtPos[node.pos])
+                    return;
+
+                //console.log("DETACHED COMMENTS!")
+
                 var leadingComments = getCommentRanges(currentSourceFile.text, node.pos);
+                var detached: CommentRange[] = [];
+                for (var i in leadingComments) {
+                    if (!leadingComments[i].leadingWhitespace && leadingComments[i].trailingWhitespace.match(/\r\n|\r|\n/g).length == 1)
+                        detached.push(leadingComments[i])
+                }
+
+                if (detached.length)
+                    emitComments(currentSourceFile, writer, detached, newLine, writeComment);
+                return;
+                
                 if (leadingComments) {
                     var detachedComments: CommentRange[] = [];
                     var lastComment: CommentRange;
@@ -3838,12 +3886,16 @@ module ts {
                     });
 
                     if (detachedComments.length) {
+
+                        emitComments(currentSourceFile, writer, detachedComments, newLine, writeComment);
+
                         // All comments look like they could have been part of the copyright header.  Make
                         // sure there is at least one blank line between it and the node.  If not, it's not
                         // a copyright header.
                         var lastCommentLine = getLineOfLocalPosition(currentSourceFile, detachedComments[detachedComments.length - 1].end);
                         var astLine = getLineOfLocalPosition(currentSourceFile, skipTrivia(currentSourceFile.text, node.pos));
                         if (astLine >= lastCommentLine + 2) {
+
                             // Valid detachedComments
                             emitComments(currentSourceFile, writer, detachedComments, newLine, writeComment);
                             var currentDetachedCommentInfo = { nodePos: node.pos, detachedCommentEndPos: detachedComments[detachedComments.length - 1].end };

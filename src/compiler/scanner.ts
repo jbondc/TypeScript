@@ -383,26 +383,27 @@ module ts {
     export function getCommentRanges(text: string, pos: number): CommentRange[]{
         var result: CommentRange[];
         var comment: CommentRange
-        var prefix = ''
+        var leading = ''
         var trail = ''
+        var attachNodePos = 0
 
 		while (true) {
             var ch = text.charCodeAt(pos);
             switch (ch) {
                 case CharacterCodes.carriageReturn:
                     if (text.charCodeAt(pos + 1) === CharacterCodes.lineFeed) {
-                        prefix += text[pos]
+                        leading += text[pos]
                         pos++;
                     }
                 case CharacterCodes.lineFeed:
-                    prefix += text[pos]
+                    leading += text[pos]
                     pos++;
                     continue;
                 case CharacterCodes.tab:
                 case CharacterCodes.verticalTab:
                 case CharacterCodes.formFeed:
                 case CharacterCodes.space:
-                    prefix += text[pos]
+                    leading += text[pos]
                     pos++;
                     continue;
                 case CharacterCodes.slash:
@@ -426,6 +427,10 @@ module ts {
                             while (pos < text.length) {
                                 if (text.charCodeAt(pos) === CharacterCodes.asterisk && text.charCodeAt(pos + 1) === CharacterCodes.slash) {
                                     pos += 2;
+                                    while (isLineBreak(text.charCodeAt(++pos))) {
+                                        trail += text[pos]
+                                    }
+                                    pos--
                                     break;
                                 }
                                 pos++;
@@ -435,20 +440,20 @@ module ts {
                         if (!result) result = [];
 
                         comment = { pos: startPos, end: pos - trail.length }
-                        if (prefix.length)
-                            comment.prefixWhitespace = prefix
+                        if (leading.length)
+                            comment.leadingWhitespace = leading
                         if (trail.length)
                             comment.trailingWhitespace = trail
 
                         result.push(comment);
-                        prefix = ''
+                        leading = ''
                         trail = ''
                         continue;
                     }
                     break;
                 default:
                     if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch) || isLineBreak(ch))) {
-                        prefix += text[pos]
+                        leading += text[pos]
                         pos++;
                         continue;
                     }

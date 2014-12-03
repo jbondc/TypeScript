@@ -819,8 +819,10 @@ module ts {
     }
 
     export interface CommentRange extends TextRange {
-        prefixWhitespace?: string;
+        leadingWhitespace?: string;
         trailingWhitespace?: string;
+        isAttached?: boolean; /* attached to a Node (trailingWhitespace has at most 1 newline) */
+        isFollowed?: boolean; /* followed *//* by another comment */
     }
 
     // Source files are declarations when they are external modules.
