@@ -46,3 +46,5 @@ declare module 'external1' {
 
 var h = 1; // h
 var j = 2;
+
+// end of file

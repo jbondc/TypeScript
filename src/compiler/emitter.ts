@@ -3619,8 +3619,7 @@ module ts {
                     return emitPinnedOrTripleSlashComments(node);
                 }
 
-                // Check if the node can be emitted regardless of the ScriptTarget
-               console.log("EMIT " + node.kind +" "+ SyntaxKind[node.kind])
+                // console.log("-- EMIT " + node.kind + ' ' + SyntaxKind[node.kind] + "\n")
 
                 switch (node.kind) {
                     case SyntaxKind.Identifier:
