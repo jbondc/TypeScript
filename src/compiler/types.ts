@@ -8,7 +8,7 @@ module ts {
     }
 
     // token > SyntaxKind.Identifer => token is a keyword
-    export enum SyntaxKind {
+    export const enum SyntaxKind {
         Unknown,
         EndOfFileToken,
         SingleLineCommentTrivia,

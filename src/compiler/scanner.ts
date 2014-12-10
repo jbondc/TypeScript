@@ -387,7 +387,7 @@ module ts {
         var trail = ''
         var attachNodePos = 0
 
-		while (true) {
+        while (true) {
             var ch = text.charCodeAt(pos);
             switch (ch) {
                 case CharacterCodes.carriageReturn:

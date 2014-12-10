@@ -680,6 +680,7 @@ module ts {
                 if (node.flags & NodeFlags.Export) {
                     write("export ");
                 }
+
                 if (node.kind !== SyntaxKind.InterfaceDeclaration) {
                     write("declare ");
                 }
@@ -1009,7 +1010,7 @@ module ts {
             }
         }
 
-        function emitPropertyDeclaration(node: PropertyDeclaration) {
+        function emitPropertyDeclaration(node: Declaration) {
             emitJsDocComments(node);
             emitClassMemberDeclarationFlags(node);
             emitVariableDeclaration(<VariableDeclaration>node);
@@ -2576,12 +2577,10 @@ module ts {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
                     emitCaptureThisForNodeIfNecessary(node.parent);
                 }
-
                 emitLines(node.statements);
                 decreaseIndent();
                 writeLine();
                 emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
-
                 scopeEmitEnd();
             }
 
@@ -3854,9 +3853,18 @@ module ts {
 
                 var leadingComments = getCommentRanges(currentSourceFile.text, node.pos);
                 var detached: CommentRange[] = [];
+				var comment: CommentRange
+				var res: string[]
                 for (var i in leadingComments) {
-                    if (!leadingComments[i].leadingWhitespace && leadingComments[i].trailingWhitespace.match(/\r\n|\r|\n/g).length == 1)
-                        detached.push(leadingComments[i])
+					comment = leadingComments[i]
+                    if (!comment.leadingWhitespace) {
+						if (comment.trailingWhitespace && (res = comment.trailingWhitespace.match(/\r\n|\r|\n/g))) {
+							if (res.length == 1)
+								continue; // attached
+						}
+
+						detached.push(leadingComments[i])
+					}
                 }
 
                 if (detached.length)
