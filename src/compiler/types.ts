@@ -225,6 +225,7 @@ module ts {
         ClassDeclaration,
         InterfaceDeclaration,
         TypeAliasDeclaration,
+        InterfaceAliasDeclaration,
         EnumDeclaration,
         ModuleDeclaration,
         ModuleBlock,
@@ -832,6 +833,9 @@ module ts {
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {
         name: Identifier;
         type: TypeNode;
+    }
+
+    export interface InterfaceAliasDeclaration extends TypeAliasDeclaration {
     }
 
     export interface EnumMember extends Declaration {

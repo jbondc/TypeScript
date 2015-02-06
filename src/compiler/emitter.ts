@@ -21,7 +21,10 @@ module ts {
         diagnosticMessage: DiagnosticMessage;
         typeName?: DeclarationName;
     }
-    type GetSymbolAccessibilityDiagnostic = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
+
+    interface GetSymbolAccessibilityDiagnostic = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
+
+    type GetSymbolAccessibilityDiagnostic2 = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
 
     interface EmitTextWriterWithSymbolWriter extends EmitTextWriter, SymbolWriter {
         getSymbolAccessibilityDiagnostic: GetSymbolAccessibilityDiagnostic;

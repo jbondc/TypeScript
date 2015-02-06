@@ -955,6 +955,10 @@ module ts {
         // attached to the EOF token.
         var parseErrorBeforeNextFinishedNode: boolean = false;
 
+        // Useful flag set to false by speculationHelper()
+        // We can use with tryParse() or lookAhead() to know if at least one of the
+        // nodes failed to parse during speculation
+        var parseErrorInSpeculation: boolean = false;
         // Create and prime the scanner before parsing the source elements.
         scanner = createScanner(languageVersion, /*skipTrivia*/ true, sourceText, scanError);
         token = nextToken();
@@ -1083,6 +1087,9 @@ module ts {
             // Mark that we've encountered an error.  We'll set an appropriate bit on the next 
             // node we finish so that it can't be reused incrementally.
             parseErrorBeforeNextFinishedNode = true;
+
+            // Useful flag for speculation to know we had an error somewhere in the tree
+            parseErrorInSpeculation = true;
         }
 
         function scanError(message: DiagnosticMessage, length?: number) {
@@ -1124,6 +1131,7 @@ module ts {
             var saveToken = token;
             var saveParseDiagnosticsLength = sourceFile.parseDiagnostics.length;
             var saveParseErrorBeforeNextFinishedNode = parseErrorBeforeNextFinishedNode;
+            parseErrorInSpeculation = false;
 
             // Note: it is not actually necessary to save/restore the context flags here.  That's
             // because the saving/restorating of these flags happens naturally through the recursive
@@ -2496,7 +2504,7 @@ module ts {
             return token === SyntaxKind.DotToken ? undefined : node;
         }
 
-        function parseNonArrayType(): TypeNode {
+        function parseNonArrayType(dataOnly = false): TypeNode {
             switch (token) {
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
@@ -2507,15 +2515,19 @@ module ts {
                     return node || parseTypeReference();
                 case SyntaxKind.VoidKeyword:
                     return parseTokenNode<TypeNode>();
-                case SyntaxKind.TypeOfKeyword:
-                    return parseTypeQuery();
                 case SyntaxKind.OpenBraceToken:
                     return parseTypeLiteral();
                 case SyntaxKind.OpenBracketToken:
                     return parseTupleType();
-                case SyntaxKind.OpenParenToken:
-                    return parseParenthesizedType();
                 default:
+                    if(dataOnly === false) {
+                        switch (token) {
+                            case SyntaxKind.OpenParenToken:
+                                return parseParenthesizedType();
+                            case SyntaxKind.TypeOfKeyword:
+                                return parseTypeQuery();
+                        }
+                    }
                     return parseTypeReference();
             }
         }
@@ -2547,8 +2559,8 @@ module ts {
             return token === SyntaxKind.CloseParenToken || isStartOfParameter() || isStartOfType();
         }
 
-        function parseArrayTypeOrHigher(): TypeNode {
-            var type = parseNonArrayType();
+        function parseArrayTypeOrHigher(dataOnly = false): TypeNode {
+            var type = parseNonArrayType(dataOnly);
             while (!scanner.hasPrecedingLineBreak() && parseOptional(SyntaxKind.OpenBracketToken)) {
                 parseExpected(SyntaxKind.CloseBracketToken);
                 var node = <ArrayTypeNode>createNode(SyntaxKind.ArrayType, type.pos);
@@ -2558,13 +2570,13 @@ module ts {
             return type;
         }
 
-        function parseUnionTypeOrHigher(): TypeNode {
-            var type = parseArrayTypeOrHigher();
+        function parseUnionTypeOrHigher(dataOnly = false): TypeNode {
+            var type = parseArrayTypeOrHigher(dataOnly);
             if (token === SyntaxKind.BarToken) {
                 var types = <NodeArray<TypeNode>>[type];
                 types.pos = type.pos;
                 while (parseOptional(SyntaxKind.BarToken)) {
-                    types.push(parseArrayTypeOrHigher());
+                    types.push(parseArrayTypeOrHigher(dataOnly));
                 }
                 types.end = getNodeEnd();
                 var node = <UnionTypeNode>createNode(SyntaxKind.UnionType, type.pos);
@@ -4406,7 +4418,12 @@ module ts {
             return parseList(ParsingContext.ClassMembers, /*checkForStrictMode*/ false, parseClassElement);
         }
 
-        function parseInterfaceDeclaration(fullStart: number, modifiers: ModifiersArray): InterfaceDeclaration {
+        function parseInterfaceDeclaration(fullStart: number, modifiers: ModifiersArray): InterfaceDeclaration|InterfaceAliasDeclaration {
+            var isAlias = lookAhead(findInterfaceAliasTokens);
+            if (isAlias === true) {
+                return parseInterfaceAliasDeclaration(fullStart, modifiers);
+            }
+
             var node = <InterfaceDeclaration>createNode(SyntaxKind.InterfaceDeclaration, fullStart);
             setModifiers(node, modifiers);
             parseExpected(SyntaxKind.InterfaceKeyword);
@@ -4417,12 +4434,52 @@ module ts {
             return finishNode(node);
         }
 
-        function parseTypeAliasDeclaration(fullStart: number, modifiers: ModifiersArray): TypeAliasDeclaration {
+        function findInterfaceAliasTokens() {
+            return SyntaxKind.InterfaceKeyword === token && SyntaxKind.Identifier === nextToken() && SyntaxKind.EqualsToken === nextToken();
+        }
+
+        function parseTypeAliasDeclaration(fullStart: number, modifiers: ModifiersArray): TypeAliasDeclaration|InterfaceAliasDeclaration {
             var node = <TypeAliasDeclaration>createNode(SyntaxKind.TypeAliasDeclaration, fullStart);
             setModifiers(node, modifiers);
             parseExpected(SyntaxKind.TypeKeyword);
             node.name = parseIdentifier();
             parseExpected(SyntaxKind.EqualsToken);
+
+            // This is a breaking change... retrofit to 'interface name = ', can we issue a warning?
+            var result = tryParse(findDataUnionTypeOrHigher);
+            if (!result) {
+                // Convert to interface alias? Breaks checker & binder..
+                // node.kind = SyntaxKind.InterfaceAliasDeclaration;
+                // Add some flag that this alias comes from an interface?
+                return parseAliasDeclaration(<InterfaceAliasDeclaration>node);
+            }
+            node.type = result;
+            parseSemicolon();
+
+            return finishNode(node);
+        }
+
+        function findDataUnionTypeOrHigher() {
+            var res = parseUnionTypeOrHigher(/* dataOnly */ true);
+            if (parseErrorInSpeculation) {
+                return null;
+            }
+            return res;
+        }
+
+        function parseInterfaceAliasDeclaration(fullStart: number, modifiers: ModifiersArray): InterfaceAliasDeclaration {
+            var node = <InterfaceAliasDeclaration>createNode(SyntaxKind.TypeAliasDeclaration, fullStart);
+            // set a flag ?
+
+            setModifiers(node, modifiers);
+            parseExpected(SyntaxKind.InterfaceKeyword);
+            node.name = parseIdentifier();
+            parseExpected(SyntaxKind.EqualsToken);
+
+            return parseAliasDeclaration(node)
+        }
+
+        function parseAliasDeclaration(node: InterfaceAliasDeclaration): InterfaceAliasDeclaration {
             node.type = parseType();
             parseSemicolon();
             return finishNode(node);
