@@ -12,7 +12,7 @@ module ts {
     export function getModuleInstanceState(node: Node): ModuleInstanceState {
         // A module is uninstantiated if it contains only 
         // 1. interface declarations, type alias declarations
-        if (node.kind === SyntaxKind.InterfaceDeclaration || node.kind === SyntaxKind.TypeAliasDeclaration) {
+        if (node.kind === SyntaxKind.InterfaceDeclaration || (node.flags & NodeFlags.Alias) ) {
             return ModuleInstanceState.NonInstantiated;
         }
         // 2. const enum declarations don't make module instantiated
@@ -461,6 +461,9 @@ module ts {
                     break;
                 case SyntaxKind.TypeAliasDeclaration:
                     bindDeclaration(<Declaration>node, SymbolFlags.TypeAlias, SymbolFlags.TypeAliasExcludes, /*isBlockScopeContainer*/ false);
+                    break;
+                case SyntaxKind.InterfaceAliasDeclaration:
+                    bindDeclaration(<Declaration>node, SymbolFlags.InterfaceAlias, SymbolFlags.TypeAliasExcludes, /*isBlockScopeContainer*/ false);
                     break;
                 case SyntaxKind.EnumDeclaration:
                     if (isConst(node)) {

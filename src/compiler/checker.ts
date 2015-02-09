@@ -158,6 +158,7 @@ module ts {
             if (flags & SymbolFlags.SetAccessor) result |= SymbolFlags.SetAccessorExcludes;
             if (flags & SymbolFlags.TypeParameter) result |= SymbolFlags.TypeParameterExcludes;
             if (flags & SymbolFlags.TypeAlias) result |= SymbolFlags.TypeAliasExcludes;
+            if (flags & SymbolFlags.InterfaceAlias) result |= SymbolFlags.TypeAliasExcludes;
             if (flags & SymbolFlags.Import) result |= SymbolFlags.ImportExcludes;
             return result;
         }
@@ -1042,7 +1043,7 @@ module ts {
                 while (node.kind === SyntaxKind.ParenthesizedType) {
                     node = node.parent;
                 }
-                if (node.kind === SyntaxKind.TypeAliasDeclaration) {
+                if (node.flags & NodeFlags.Alias) {
                     return getSymbolOfNode(node);
                 }
             }
@@ -1587,6 +1588,7 @@ module ts {
                     case SyntaxKind.ClassDeclaration:
                     case SyntaxKind.InterfaceDeclaration:
                     case SyntaxKind.TypeAliasDeclaration:
+                    case SyntaxKind.InterfaceAliasDeclaration:
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.EnumDeclaration:
                     case SyntaxKind.ImportDeclaration:
@@ -2136,11 +2138,13 @@ module ts {
             return <InterfaceType>links.declaredType;
         }
 
-        function getDeclaredTypeOfTypeAlias(symbol: Symbol): Type {
+        function getDeclaredTypeOfTypeAlias(symbol: Symbol, isInterface = false): Type {
             var links = getSymbolLinks(symbol);
+            var kind = isInterface ? SyntaxKind.InterfaceAliasDeclaration : SyntaxKind.TypeAliasDeclaration;
             if (!links.declaredType) {
                 links.declaredType = resolvingType;
-                var declaration = <TypeAliasDeclaration>getDeclarationOfKind(symbol, SyntaxKind.TypeAliasDeclaration);
+
+                var declaration = <TypeAliasDeclaration>getDeclarationOfKind(symbol, kind);
                 var type = getTypeFromTypeNode(declaration.type);
                 if (links.declaredType === resolvingType) {
                     links.declaredType = type;
@@ -2148,7 +2152,7 @@ module ts {
             }
             else if (links.declaredType === resolvingType) {
                 links.declaredType = unknownType;
-                var declaration = <TypeAliasDeclaration>getDeclarationOfKind(symbol, SyntaxKind.TypeAliasDeclaration);
+                var declaration = <TypeAliasDeclaration>getDeclarationOfKind(symbol, kind);
                 error(declaration.name, Diagnostics.Type_alias_0_circularly_references_itself, symbolToString(symbol));
             }
             return links.declaredType;
@@ -2195,6 +2199,9 @@ module ts {
             }
             if (symbol.flags & SymbolFlags.TypeAlias) {
                 return getDeclaredTypeOfTypeAlias(symbol);
+            }
+            if (symbol.flags & SymbolFlags.InterfaceAlias) {
+                return getDeclaredTypeOfTypeAlias(symbol, /* isInterface */ true);
             }
             if (symbol.flags & SymbolFlags.Enum) {
                 return getDeclaredTypeOfEnum(symbol);
@@ -8128,7 +8135,7 @@ module ts {
 
             return true;
         }
-        
+
         function checkCollisionWithCapturedThisVariable(node: Node, name: Identifier): void {
             if (needCollisionCheckForIdentifier(node, name, "_this")) {
                 potentialThisCollisions.push(node);
@@ -8138,7 +8145,7 @@ module ts {
         // this function will run after checking the source file so 'CaptureThis' is correct for all nodes
         function checkIfThisIsCapturedInEnclosingScope(node: Node): void {
             var current = node;
-            while (current) {                
+            while (current) {
                 if (getNodeCheckFlags(current) & NodeCheckFlags.CaptureThis) {
                     var isDeclaration = node.kind !== SyntaxKind.Identifier;
                     if (isDeclaration) {
@@ -8638,7 +8645,7 @@ module ts {
                         if (!(member.flags & NodeFlags.Static) && hasDynamicName(member)) {
                             var propType = getTypeOfSymbol(member.symbol);
                             checkIndexConstraintForProperty(member.symbol, propType, type, declaredStringIndexer, stringIndexType, IndexKind.String);
-                            checkIndexConstraintForProperty(member.symbol, propType, type, declaredNumberIndexer, numberIndexType, IndexKind.Number); 
+                            checkIndexConstraintForProperty(member.symbol, propType, type, declaredNumberIndexer, numberIndexType, IndexKind.Number);
                         }
                     }
                 }
@@ -8654,7 +8661,7 @@ module ts {
                 }
             }
 
-            if (errorNode && !isTypeAssignableTo(numberIndexType, stringIndexType)) {                
+            if (errorNode && !isTypeAssignableTo(numberIndexType, stringIndexType)) {
                 error(errorNode, Diagnostics.Numeric_index_type_0_is_not_assignable_to_string_index_type_1,
                     typeToString(numberIndexType), typeToString(stringIndexType));
             }
@@ -8830,7 +8837,7 @@ module ts {
                 if (derived) {
                     var baseDeclarationFlags = getDeclarationFlagsFromSymbol(base);
                     var derivedDeclarationFlags = getDeclarationFlagsFromSymbol(derived);
-                    if ((baseDeclarationFlags & NodeFlags.Private)  || (derivedDeclarationFlags & NodeFlags.Private)) {
+                    if ((baseDeclarationFlags & NodeFlags.Private) || (derivedDeclarationFlags & NodeFlags.Private)) {
                         // either base or derived property is private - not override, skip it
                         continue;
                     }
@@ -8963,7 +8970,7 @@ module ts {
                     // run subsequent checks only if first set succeeded
                     if (checkInheritedPropertiesAreIdentical(type, node.name)) {
                         forEach(type.baseTypes, baseType => {
-                            checkTypeAssignableTo(type, baseType, node.name , Diagnostics.Interface_0_incorrectly_extends_interface_1);
+                            checkTypeAssignableTo(type, baseType, node.name, Diagnostics.Interface_0_incorrectly_extends_interface_1);
                         });
                         checkIndexConstraints(type);
                     }
@@ -8980,8 +8987,46 @@ module ts {
         function checkTypeAliasDeclaration(node: TypeAliasDeclaration) {
             // Grammar checking
             checkGrammarModifiers(node);
-            
+
+            // type = {a: string} not allowed to have members, use interface = {a: string} instead...
+            if ((<TypeLiteralNode>node.type).members && (<TypeLiteralNode>node.type).members.length) {
+                error(node, Diagnostics.Use_interface_0_instead_of_type_0_to_alias_a_structured_type, node.name.text);
+            }
+
             checkTypeNameIsReserved(node.name, Diagnostics.Type_alias_name_cannot_be_0);
+            checkSourceElement(node.type);
+        }
+
+        function checkInterfaceAliasDeclaration(node: InterfaceAliasDeclaration) {
+            // Grammar checking
+            checkGrammarModifiers(node);
+            checkTypeNameIsReserved(node.name, Diagnostics.Type_alias_name_cannot_be_0);
+
+            function isStructure(type: Type) {
+                return (type.flags & (TypeFlags.Class | TypeFlags.Interface)) > 0;
+            }
+
+             // We have a interface = typeof Something
+            if ((<TypeQueryNode>node.type).exprName) {
+
+                var type = getTypeFromTypeQueryNode(<TypeQueryNode>node.type);
+
+                // Check for referenced type is a class or interface 
+                if (isStructure(type) === false) {
+                    error(node, Diagnostics.interface_0_typeof_1_can_only_reference_a_class_or_interface, node.name.text, type.symbol.name);
+                    return
+                }
+
+            } else if (!(<TypeLiteralNode>node.type).members) {
+
+                // Look for a reference
+                 var type = getTypeFromTypeReferenceNode(<TypeReferenceNode>node.type);
+                 if (isStructure(type) === false) {
+                     error(node, Diagnostics.interface_0_can_only_reference_a_structured_type, node.name.text);
+                     return
+                 }
+            }
+
             checkSourceElement(node.type);
         }
 
@@ -9441,6 +9486,8 @@ module ts {
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return checkTypeAliasDeclaration(<TypeAliasDeclaration>node);
+                case SyntaxKind.InterfaceAliasDeclaration:
+                    return checkInterfaceAliasDeclaration(<InterfaceAliasDeclaration>node);
                 case SyntaxKind.EnumDeclaration:
                     return checkEnumDeclaration(<EnumDeclaration>node);
                 case SyntaxKind.ModuleDeclaration:
@@ -9699,6 +9746,7 @@ module ts {
                 case SyntaxKind.ClassDeclaration:
                 case SyntaxKind.InterfaceDeclaration:
                 case SyntaxKind.TypeAliasDeclaration:
+                case SyntaxKind.InterfaceAliasDeclaration:
                 case SyntaxKind.EnumDeclaration:
                     return true;
             }
@@ -10281,6 +10329,7 @@ module ts {
                 case SyntaxKind.VariableStatement:
                 case SyntaxKind.FunctionDeclaration:
                 case SyntaxKind.TypeAliasDeclaration:
+                case SyntaxKind.InterfaceAliasDeclaration:
                 case SyntaxKind.ImportDeclaration:
                 case SyntaxKind.Parameter:
                     break;

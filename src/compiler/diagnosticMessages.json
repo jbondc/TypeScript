@@ -1813,5 +1813,17 @@
     "The 'arguments' object cannot be referenced in an arrow function. Consider using a standard function expression.": {
         "category": "Error",
         "code": 9002
+    },
+    "Use 'interface {0} = {}' instead of 'type {0} = {}' to alias a structured type.": {
+        "category": "Error",
+        "code": 9003
+    },
+    "'interface {0} =' can only reference a structured type.": {
+        "category": "Error",
+        "code": 9004
+    },
+    "'interface {0} = typeof {1}' can only reference a class or interface.": {
+        "category": "Error",
+        "code": 9005
     }
 }

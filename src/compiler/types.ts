@@ -292,7 +292,8 @@ module ts {
         DeclarationFile =   0x00000400,  // Node is a .d.ts file
         Let =               0x00000800,  // Variable declaration
         Const =             0x00001000,  // Variable declaration
-        OctalLiteral =      0x00002000,
+        OctalLiteral      = 0x00002000,
+        Alias             = 0x00004000,  // Alias
 
         Modifier = Export | Ambient | Public | Private | Protected | Static,
         AccessibilityModifier = Public | Private | Protected,
@@ -1177,11 +1178,12 @@ module ts {
         Prototype               = 0x08000000,  // Prototype property (no source representation)
         UnionProperty           = 0x10000000,  // Property in union type
         Optional                = 0x20000000,  // Optional property
+        InterfaceAlias          = 0x40000000,
 
         Enum = RegularEnum | ConstEnum,
         Variable = FunctionScopedVariable | BlockScopedVariable,
         Value = Variable | Property | EnumMember | Function | Class | Enum | ValueModule | Method | GetAccessor | SetAccessor,
-        Type = Class | Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
+        Type = Class | Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias | InterfaceAlias,
         Namespace = ValueModule | NamespaceModule,
         Module = ValueModule | NamespaceModule,
         Accessor = GetAccessor | SetAccessor,
@@ -1211,7 +1213,7 @@ module ts {
         TypeAliasExcludes = Type,
         ImportExcludes = Import,  // Imports collide with all other imports with the same name
 
-        ModuleMember = Variable | Function | Class | Interface | Enum | Module | TypeAlias | Import,
+        ModuleMember = Variable | Function | Class | Interface | Enum | Module | TypeAlias | InterfaceAlias | Import,
 
         ExportHasLocal = Function | Class | Enum | ValueModule,
 

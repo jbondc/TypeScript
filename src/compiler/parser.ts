@@ -236,6 +236,10 @@ module ts {
                 return visitNodes(cbNodes, node.modifiers) ||
                     visitNode(cbNode, (<TypeAliasDeclaration>node).name) ||
                     visitNode(cbNode, (<TypeAliasDeclaration>node).type);
+            case SyntaxKind.InterfaceAliasDeclaration:
+                return visitNodes(cbNodes, node.modifiers) ||
+                    visitNode(cbNode, (<InterfaceAliasDeclaration>node).name) ||
+                    visitNode(cbNode, (<InterfaceAliasDeclaration>node).type);
             case SyntaxKind.EnumDeclaration:
                 return visitNodes(cbNodes, node.modifiers) ||
                     visitNode(cbNode, (<EnumDeclaration>node).name) ||
@@ -2504,7 +2508,17 @@ module ts {
             return token === SyntaxKind.DotToken ? undefined : node;
         }
 
-        function parseNonArrayType(dataOnly = false): TypeNode {
+        function parseStructuredType(): TypeNode {
+            switch (token) {
+                case SyntaxKind.OpenBraceToken:
+                    return parseTypeLiteral();
+                case SyntaxKind.TypeOfKeyword:
+                    return parseTypeQuery();
+            }
+            return parseTypeReference();
+        }
+
+        function parseNonArrayType(): TypeNode {
             switch (token) {
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
@@ -2519,17 +2533,12 @@ module ts {
                     return parseTypeLiteral();
                 case SyntaxKind.OpenBracketToken:
                     return parseTupleType();
-                default:
-                    if(dataOnly === false) {
-                        switch (token) {
-                            case SyntaxKind.OpenParenToken:
-                                return parseParenthesizedType();
-                            case SyntaxKind.TypeOfKeyword:
-                                return parseTypeQuery();
-                        }
-                    }
-                    return parseTypeReference();
+                case SyntaxKind.OpenParenToken:
+                    return parseParenthesizedType();
+                case SyntaxKind.TypeOfKeyword:
+                    return parseTypeQuery();
             }
+            return parseTypeReference();
         }
 
         function isStartOfType(): boolean {
@@ -2559,8 +2568,8 @@ module ts {
             return token === SyntaxKind.CloseParenToken || isStartOfParameter() || isStartOfType();
         }
 
-        function parseArrayTypeOrHigher(dataOnly = false): TypeNode {
-            var type = parseNonArrayType(dataOnly);
+        function parseArrayTypeOrHigher(): TypeNode {
+            var type = parseNonArrayType();
             while (!scanner.hasPrecedingLineBreak() && parseOptional(SyntaxKind.OpenBracketToken)) {
                 parseExpected(SyntaxKind.CloseBracketToken);
                 var node = <ArrayTypeNode>createNode(SyntaxKind.ArrayType, type.pos);
@@ -2570,13 +2579,13 @@ module ts {
             return type;
         }
 
-        function parseUnionTypeOrHigher(dataOnly = false): TypeNode {
-            var type = parseArrayTypeOrHigher(dataOnly);
+        function parseUnionTypeOrHigher(): TypeNode {
+            var type = parseArrayTypeOrHigher();
             if (token === SyntaxKind.BarToken) {
                 var types = <NodeArray<TypeNode>>[type];
                 types.pos = type.pos;
                 while (parseOptional(SyntaxKind.BarToken)) {
-                    types.push(parseArrayTypeOrHigher(dataOnly));
+                    types.push(parseArrayTypeOrHigher());
                 }
                 types.end = getNodeEnd();
                 var node = <UnionTypeNode>createNode(SyntaxKind.UnionType, type.pos);
@@ -4440,47 +4449,30 @@ module ts {
 
         function parseTypeAliasDeclaration(fullStart: number, modifiers: ModifiersArray): TypeAliasDeclaration|InterfaceAliasDeclaration {
             var node = <TypeAliasDeclaration>createNode(SyntaxKind.TypeAliasDeclaration, fullStart);
+
             setModifiers(node, modifiers);
             parseExpected(SyntaxKind.TypeKeyword);
             node.name = parseIdentifier();
             parseExpected(SyntaxKind.EqualsToken);
 
-            // This is a breaking change... retrofit to 'interface name = ', can we issue a warning?
-            var result = tryParse(findDataUnionTypeOrHigher);
-            if (!result) {
-                // Convert to interface alias? Breaks checker & binder..
-                // node.kind = SyntaxKind.InterfaceAliasDeclaration;
-                // Add some flag that this alias comes from an interface?
-                return parseAliasDeclaration(<InterfaceAliasDeclaration>node);
-            }
-            node.type = result;
-            parseSemicolon();
+            node.flags |= NodeFlags.Alias;
+            node.type = parseType();
 
+            parseSemicolon();
             return finishNode(node);
         }
 
-        function findDataUnionTypeOrHigher() {
-            var res = parseUnionTypeOrHigher(/* dataOnly */ true);
-            if (parseErrorInSpeculation) {
-                return null;
-            }
-            return res;
-        }
-
         function parseInterfaceAliasDeclaration(fullStart: number, modifiers: ModifiersArray): InterfaceAliasDeclaration {
-            var node = <InterfaceAliasDeclaration>createNode(SyntaxKind.TypeAliasDeclaration, fullStart);
-            // set a flag ?
+            var node = <InterfaceAliasDeclaration>createNode(SyntaxKind.InterfaceAliasDeclaration, fullStart);
 
             setModifiers(node, modifiers);
             parseExpected(SyntaxKind.InterfaceKeyword);
             node.name = parseIdentifier();
             parseExpected(SyntaxKind.EqualsToken);
 
-            return parseAliasDeclaration(node)
-        }
+            node.flags |= NodeFlags.Alias;
+            node.type = parseStructuredType();
 
-        function parseAliasDeclaration(node: InterfaceAliasDeclaration): InterfaceAliasDeclaration {
-            node.type = parseType();
             parseSemicolon();
             return finishNode(node);
         }

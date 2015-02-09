@@ -671,6 +671,7 @@ module ts {
             case SyntaxKind.ClassDeclaration:
             case SyntaxKind.InterfaceDeclaration:
             case SyntaxKind.TypeAliasDeclaration:
+            case SyntaxKind.InterfaceAliasDeclaration:
             case SyntaxKind.EnumDeclaration:
             case SyntaxKind.ModuleDeclaration:
             case SyntaxKind.ImportDeclaration:
@@ -769,6 +770,7 @@ module ts {
                         case SyntaxKind.EnumDeclaration:
                         case SyntaxKind.InterfaceDeclaration:
                         case SyntaxKind.TypeAliasDeclaration:
+                        case SyntaxKind.InterfaceAliasDeclaration:
                         case SyntaxKind.ModuleDeclaration:
                         case SyntaxKind.ImportDeclaration:
                             // early exit cases - declarations cannot be nested in classes

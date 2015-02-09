@@ -22,9 +22,10 @@ module ts {
         typeName?: DeclarationName;
     }
 
-    interface GetSymbolAccessibilityDiagnostic = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
+    interface Foo = { bar : string };
+    //var c: Foo = { bar: "hello" };
 
-    type GetSymbolAccessibilityDiagnostic2 = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
+    type GetSymbolAccessibilityDiagnostic = (symbolAccesibilityResult: SymbolAccessiblityResult) => SymbolAccessibilityDiagnostic;
 
     interface EmitTextWriterWithSymbolWriter extends EmitTextWriter, SymbolWriter {
         getSymbolAccessibilityDiagnostic: GetSymbolAccessibilityDiagnostic;
@@ -786,11 +787,15 @@ module ts {
             }
         }
 
-        function emitTypeAliasDeclaration(node: TypeAliasDeclaration) {
+        function emitTypeAliasDeclaration(node: TypeAliasDeclaration, isInterface = false) {
             if (resolver.isDeclarationVisible(node)) {
                 emitJsDocComments(node);
                 emitModuleElementDeclarationFlags(node);
-                write("type ");
+                if (isInterface) {
+                    write("interface ");
+                } else {
+                    write("type ");
+                }
                 writeTextOfNode(currentSourceFile, node.name);
                 write(" = ");
                 emitTypeWithNewGetSymbolAccessibilityDiagnostic(node.type, getTypeAliasDeclarationVisibilityError);
@@ -1469,6 +1474,8 @@ module ts {
                     return emitClassDeclaration(<ClassDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return emitTypeAliasDeclaration(<TypeAliasDeclaration>node);
+                case SyntaxKind.InterfaceAliasDeclaration:
+                    return emitTypeAliasDeclaration(<TypeAliasDeclaration>node, /* isInterface */true);
                 case SyntaxKind.EnumMember:
                     return emitEnumMemberDeclaration(<EnumMember>node);
                 case SyntaxKind.EnumDeclaration:
