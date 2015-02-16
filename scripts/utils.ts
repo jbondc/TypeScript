@@ -68,6 +68,7 @@ export function findTsPathsOfVS() {
 
     paths['tsc'] = fpath
     paths['tsc.lib.d'] = path.join(path.dirname(fpath), 'lib.d.ts')
+    paths['tsc.lib.es6.d'] = path.join(path.dirname(fpath), 'lib.es6.d.ts')
 
     // Try env variables first
     var extPath = path.normalize('Common7/IDE/CommonExtensions/Microsoft/TypeScript/typescriptServices.js')

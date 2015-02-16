@@ -510,7 +510,7 @@ function cleanTestDirs() {
     }
 
     jake.mkdirP(localRwcBaseline);
-	jake.mkdirP(localTest262Baseline);
+    jake.mkdirP(localTest262Baseline);
     jake.mkdirP(localBaseline);
 }
 
@@ -708,6 +708,7 @@ task('---------- community ----------', function() {
 
 var tscPath = path.join(__dirname, tscFile)
 var libPath = path.join(path.dirname(tscPath), 'lib.d.ts')
+var libEs6Path = path.join(path.dirname(tscPath), 'lib.es6.d.ts')
 var servicesPath = path.join(__dirname, servicesFile)
 
 desc("Link Visual Studio to this built version of TypeScript");
@@ -732,6 +733,10 @@ task('link-vs', [servicesFile, tscFile], function() {
         // Create symlinks, does Visual Studio pick up the changes? Force a refresh? 
         fs.symlinkSync(tscPath, paths['tsc'])
         fs.symlinkSync(libPath, paths['tsc.lib.d'])
+
+        if(fs.existsSync(libEs6Path))
+            fs.symlinkSync(libEs6Path, paths['tsc.lib.es6.d'])
+
         fs.symlinkSync(servicesPath, paths['services'])
         fs.symlinkSync(libPath, paths['services.lib.d'])
 
@@ -743,7 +748,7 @@ task('link-vs', [servicesFile, tscFile], function() {
 }, { async: true });
 
 desc("Unlink/restore Visual Studio to original version of TypeScript");
-task('unlink-vs', [servicesFile, tscFile], function() {
+task('unlink-vs', function() {
     
     utils.checkAdmin(function(){
         var paths = utils.findTsPathsOfVS();
@@ -763,6 +768,9 @@ task('unlink-vs', [servicesFile, tscFile], function() {
 
         fs.renameSync(paths['tsc'] + ext, paths['tsc'])
         fs.renameSync(paths['tsc.lib.d'] + ext, paths['tsc.lib.d'])
+        if(fs.existsSync(paths['tsc.lib.es6.d'] + ext))
+            fs.renameSync(paths['tsc.lib.es6.d'] + ext, paths['tsc.lib.es6.d'])
+
         fs.renameSync(paths['services'] + ext, paths['services'])
         fs.renameSync(paths['services.lib.d'] + ext, paths['services.lib.d'])
 
