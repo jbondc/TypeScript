@@ -4,6 +4,7 @@ var fs = require("fs");
 var os = require("os");
 var path = require("path");
 var child_process = require("child_process");
+var utils = require("./scripts/utils");
 
 // Variables
 var compilerDirectory = "src/compiler/";
@@ -699,4 +700,74 @@ task('tsc-instrumented', [loggedIOJsPath, instrumenterJsPath, tscFile], function
         complete();
     });
     ex.run();
+}, { async: true });
+
+desc("** use at your own risk, not supported ** Tasks & extensions by the community.");
+task('---------- community ----------', function() {
+});
+
+var tscPath = path.join(__dirname, tscFile)
+var libPath = path.join(path.dirname(tscPath), 'lib.d.ts')
+var servicesPath = path.join(__dirname, servicesFile)
+
+desc("Link Visual Studio to this built version of TypeScript");
+task('link-vs', [servicesFile, tscFile], function() {
+
+    utils.checkAdmin(function(){
+        var paths = utils.findTsPathsOfVS();
+        var ext = utils.getOriginalExt();
+
+        if( !fs.existsSync(paths['tsc'] + ext) ) {
+            fs.renameSync(paths['tsc'], paths['tsc'] + ext)
+            fs.renameSync(paths['tsc.lib.d'], paths['tsc.lib.d'] + ext)
+        }
+        if( !fs.existsSync(paths['services'] + ext) ) {
+            fs.renameSync(paths['services'], paths['services'] + ext)
+            fs.renameSync(paths['services.lib.d'], paths['services.lib.d'] + ext)
+        }
+
+        // Unlink paths
+        utils.unlinkPaths(paths)
+
+        // Create symlinks, does Visual Studio pick up the changes? Force a refresh? 
+        fs.symlinkSync(tscPath, paths['tsc'])
+        fs.symlinkSync(libPath, paths['tsc.lib.d'])
+        fs.symlinkSync(servicesPath, paths['services'])
+        fs.symlinkSync(libPath, paths['services.lib.d'])
+
+        console.log('Done!')
+        complete();
+    });
+
+
+}, { async: true });
+
+desc("Unlink/restore Visual Studio to original version of TypeScript");
+task('unlink-vs', [servicesFile, tscFile], function() {
+    
+    utils.checkAdmin(function(){
+        var paths = utils.findTsPathsOfVS();
+        var ext = utils.getOriginalExt();
+
+        var errors = []
+        if( !fs.existsSync(paths['tsc'] + ext) ) {
+            errors.push("Original tsc not found at "+ (paths['tsc'] + ext))
+        }
+        if( !fs.existsSync(paths['services'] + ext) ) {
+            errors.push("Original Services not found at "+ (paths['services'] + ext))
+        }
+        if(errors.length)
+            throw new Error("Missing files\n" + errors.join("\n"))
+
+        utils.unlinkPaths(paths)
+
+        fs.renameSync(paths['tsc'] + ext, paths['tsc'])
+        fs.renameSync(paths['tsc.lib.d'] + ext, paths['tsc.lib.d'])
+        fs.renameSync(paths['services'] + ext, paths['services'])
+        fs.renameSync(paths['services.lib.d'] + ext, paths['services.lib.d'])
+
+        console.log('Done!')
+        complete();
+    });
+
 }, { async: true });
