@@ -9,7 +9,7 @@ module ts {
     }
 
     // token > SyntaxKind.Identifer => token is a keyword
-    export const enum SyntaxKind {
+    export enum SyntaxKind {
         Unknown,
         EndOfFileToken,
         SingleLineCommentTrivia,
@@ -130,6 +130,7 @@ module ts {
         PublicKeyword,
         StaticKeyword,
         YieldKeyword,
+        NamespaceKeyword,
         // Contextual keywords
         AnyKeyword,
         BooleanKeyword,
@@ -231,8 +232,10 @@ module ts {
         InterfaceDeclaration,
         TypeAliasDeclaration,
         EnumDeclaration,
+        NamespaceDeclaration,
         ModuleDeclaration,
         ModuleBlock,
+        NamespaceBlock,
         ImportEqualsDeclaration,
         ImportDeclaration,
         ImportClause,
@@ -363,6 +366,7 @@ module ts {
         locals?: SymbolTable;         // Locals associated with node (initialized by binding)
         nextContainer?: Node;         // Next container in declaration order (initialized by binding)
         localSymbol?: Symbol;         // Local symbol declared by node (initialized by binding only for exported nodes)
+        namespace?:string 
     }
 
     export interface NodeArray<T> extends Array<T>, TextRange {
@@ -390,6 +394,11 @@ module ts {
     export interface Declaration extends Node {
         _declarationBrand: any;
         name?: DeclarationName;
+    }
+
+    export interface DeclarationWithIdentifier extends Node {
+        _declarationBrand: any;
+        name?: Identifier;
     }
 
     export interface ComputedPropertyName extends Node {
@@ -873,8 +882,17 @@ module ts {
         body: ModuleBlock | ModuleDeclaration;
     }
 
+    export interface NamespaceDeclaration extends Declaration, ModuleElement  {
+        name: Identifier;
+        body: NamespaceBlock | NamespaceDeclaration;
+    }
+
     export interface ModuleBlock extends Node, ModuleElement {
         statements: NodeArray<ModuleElement>
+    }
+
+    export interface NamespaceBlock extends Node {
+        statements: NodeArray<DeclarationWithIdentifier>
     }
 
     export interface ImportEqualsDeclaration extends Declaration, ModuleElement {

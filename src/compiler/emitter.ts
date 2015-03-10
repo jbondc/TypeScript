@@ -714,7 +714,7 @@ module ts {
                     write("export ");
                 }
 
-                if (node.kind !== SyntaxKind.InterfaceDeclaration) {
+                if (node.kind !== SyntaxKind.InterfaceDeclaration && !node.namespace) {
                     write("declare ");
                 }
             }
@@ -1488,6 +1488,7 @@ module ts {
                 case SyntaxKind.EnumDeclaration:
                     return emitEnumDeclaration(<EnumDeclaration>node);
                 case SyntaxKind.ModuleDeclaration:
+                case SyntaxKind.NamespaceDeclaration:
                     return emitModuleDeclaration(<ModuleDeclaration>node);
                 case SyntaxKind.ImportEqualsDeclaration:
                     return emitImportEqualsDeclaration(<ImportEqualsDeclaration>node);
@@ -2605,12 +2606,20 @@ module ts {
                 if (variableId !== undefined && generatedBlockScopeNames) {
                     var text = generatedBlockScopeNames[variableId];
                     if (text) {
+                        if (node.namespace) {
+                            text = node.namespace + '.' + text;
+                        }
                         write(text);
                         return;
                     }
                 }
                 if (!node.parent) {
-                    write(node.text);
+                    if (node.namespace) {
+                        write(node.namespace + '.' + node.text);
+                    }
+                    else {
+                        write(node.text);
+                    }
                 }
                 else if (!isNotExpressionIdentifier(node)) {
                     emitExpressionIdentifier(node);
@@ -4503,8 +4512,15 @@ module ts {
             }
 
             function emitClassDeclaration(node: ClassDeclaration) {
-                write("var ");
-                emitDeclarationName(node);
+                if (node.name.namespace) {
+                    emitDeclarationName(node);
+                    node.name.namespace = null
+                } 
+                else {
+                    write("var ");
+                    emitDeclarationName(node);
+                }
+
                 write(" = (function (");
                 var baseTypeNode = getClassBaseTypeNode(node);
                 if (baseTypeNode) {
@@ -4794,6 +4810,37 @@ module ts {
                 if (languageVersion < ScriptTarget.ES6 && node.name.kind === SyntaxKind.Identifier && node.parent === currentSourceFile) {
                     emitExportMemberAssignments(<Identifier>node.name);
                 }
+            }
+
+            function emitNamespaceDeclaration(node: NamespaceDeclaration) {
+                emitStart(node);
+                write("var ");
+                emit(node.name);
+                write(";");
+                emitEnd(node);
+                writeLine();
+
+                var nameSpace = node.name.text;
+                var n = node.body;
+
+                while (!(<NamespaceBlock>n).statements) {
+                    nameSpace += '.' + (<NamespaceDeclaration>n).name.text;
+                    write(nameSpace + ' = ' + nameSpace + ' || {};');
+                    writeLine();
+
+                    n = (<NamespaceDeclaration>n).body;
+                }
+
+                var statements = (<NamespaceBlock>n).statements;
+                for (var i in statements) {
+                    if ((<any>statements[i]).name) {
+                        (<any>statements[i]).name.namespace = nameSpace;
+                    }
+                    statements[i].namespace = nameSpace;
+                    emit(statements[i]);
+                }
+
+                emitEnd(node);
             }
 
             function emitRequire(moduleName: Expression) {
@@ -5361,6 +5408,8 @@ module ts {
                         return emitEnumMember(<EnumMember>node);
                     case SyntaxKind.ModuleDeclaration:
                         return emitModuleDeclaration(<ModuleDeclaration>node);
+                    case SyntaxKind.NamespaceDeclaration:
+                        return emitNamespaceDeclaration(<NamespaceDeclaration>node);
                     case SyntaxKind.ImportDeclaration:
                         return emitImportDeclaration(<ImportDeclaration>node);
                     case SyntaxKind.ImportEqualsDeclaration:

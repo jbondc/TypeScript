@@ -297,6 +297,7 @@ module ts {
     const enum ParsingContext {
         SourceElements,            // Elements in source file
         ModuleElements,            // Elements in module declaration
+        NamespaceElements,         // Elements in namespace declaration
         BlockStatements,           // Statements in block
         SwitchClauses,             // Clauses in switch statement
         SwitchClauseStatements,    // Statements in switch clause
@@ -329,6 +330,7 @@ module ts {
         switch (context) {
             case ParsingContext.SourceElements:           return Diagnostics.Declaration_or_statement_expected;
             case ParsingContext.ModuleElements:           return Diagnostics.Declaration_or_statement_expected;
+            case ParsingContext.NamespaceElements:        return Diagnostics.Declaration_or_statement_expected; // TODO: just declaration expected
             case ParsingContext.BlockStatements:          return Diagnostics.Statement_expected;
             case ParsingContext.SwitchClauses:            return Diagnostics.case_or_default_expected;
             case ParsingContext.SwitchClauseStatements:   return Diagnostics.Statement_expected;
@@ -1540,6 +1542,7 @@ module ts {
             switch (parsingContext) {
                 case ParsingContext.SourceElements:
                 case ParsingContext.ModuleElements:
+                case ParsingContext.NamespaceElements:
                     return isSourceElement(inErrorRecovery);
                 case ParsingContext.BlockStatements:
                 case ParsingContext.SwitchClauseStatements:
@@ -1609,6 +1612,7 @@ module ts {
 
             switch (kind) {
                 case ParsingContext.ModuleElements:
+                case ParsingContext.NamespaceElements:
                 case ParsingContext.BlockStatements:
                 case ParsingContext.SwitchClauses:
                 case ParsingContext.TypeMembers:
@@ -1694,6 +1698,9 @@ module ts {
             while (!isListTerminator(kind)) {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     var element = parseListElement(kind, parseElement);
+                    if (!element.parent)
+                        element.parent = sourceFile; // why is this not set?
+
                     result.push(element);
 
                     // test elements only if we are not already in strict mode
@@ -4638,6 +4645,18 @@ module ts {
             return finishNode(node);
         }
 
+        function parseNamespaceBlock(): NamespaceBlock {
+            var node = <NamespaceBlock>createNode(SyntaxKind.ModuleBlock, scanner.getStartPos());
+            if (parseExpected(SyntaxKind.OpenBraceToken)) {
+                node.statements = parseList(ParsingContext.NamespaceElements, /*checkForStrictMode*/false, parseDeclarationInNamespace);
+                parseExpected(SyntaxKind.CloseBraceToken);
+            }
+            else {
+                node.statements = createMissingList<DeclarationWithIdentifier>();
+            }
+            return finishNode(node);
+        }
+
         function parseInternalModuleTail(fullStart: number, modifiers: ModifiersArray, flags: NodeFlags): ModuleDeclaration {
             var node = <ModuleDeclaration>createNode(SyntaxKind.ModuleDeclaration, fullStart);
             setModifiers(node, modifiers);
@@ -4662,6 +4681,23 @@ module ts {
             return token === SyntaxKind.StringLiteral
                 ? parseAmbientExternalModuleDeclaration(fullStart, modifiers)
                 : parseInternalModuleTail(fullStart, modifiers, modifiers ? modifiers.flags : 0);
+        }
+
+        function parseNamespaceDeclaration(fullStart: number, modifiers: ModifiersArray): NamespaceDeclaration {
+            parseExpected(SyntaxKind.NamespaceKeyword);
+
+            return parseNamespaceTail(fullStart, modifiers, 0);
+        }
+
+        function parseNamespaceTail(fullStart: number, modifiers: ModifiersArray, flags: NodeFlags): NamespaceDeclaration {
+            var node = <NamespaceDeclaration>createNode(SyntaxKind.NamespaceDeclaration, fullStart);
+            setModifiers(node, modifiers);
+            node.flags |= flags;
+            node.name = parseIdentifier();
+            node.body = parseOptional(SyntaxKind.DotToken)
+                ? parseNamespaceTail(getNodePos(), /*modifiers:*/undefined, NodeFlags.Export)
+                : parseNamespaceBlock();
+            return finishNode(node);
         }
 
         function isExternalModuleReference() {
@@ -4894,6 +4930,9 @@ module ts {
                 case SyntaxKind.ModuleKeyword:
                     // Not a true keyword so ensure an identifier or string literal follows
                     return lookAhead(nextTokenIsIdentifierOrKeywordOrStringLiteral);
+                case SyntaxKind.NamespaceKeyword:
+                    // Not a true keyword so ensure an identifier
+                    return lookAhead(nextTokenIsIdentifier);
                 case SyntaxKind.ExportKeyword:
                     // Check for export assignment or modifier on source element
                     return lookAhead(nextTokenCanFollowExportKeyword);
@@ -4942,6 +4981,31 @@ module ts {
             return nextToken() === SyntaxKind.AsKeyword;
         }
 
+        function parseDeclarationInNamespace(): DeclarationWithIdentifier {
+            var fullStart = getNodePos();
+            //var modifiers = parseModifiers(); // allow other mofifiers?
+
+            var modifiers = <ModifiersArray>[];
+            modifiers.pos = scanner.getStartPos();
+            modifiers.flags = NodeFlags.Export | NodeFlags.Default;
+            modifiers.end = modifiers.pos;
+
+            switch (token) {
+                case SyntaxKind.FunctionKeyword:
+                    return parseFunctionDeclaration(fullStart, modifiers);
+                case SyntaxKind.ClassKeyword:
+                    return parseClassDeclaration(fullStart, modifiers);
+                case SyntaxKind.InterfaceKeyword:
+                    return parseInterfaceDeclaration(fullStart, modifiers);
+                case SyntaxKind.TypeKeyword:
+                    return parseTypeAliasDeclaration(fullStart, modifiers);
+                case SyntaxKind.EnumKeyword:
+                    return parseEnumDeclaration(fullStart, modifiers);
+                default:
+                    Debug.fail("Invalid declaration in namespace");
+            }
+        }
+
         function parseDeclaration(): ModuleElement {
             var fullStart = getNodePos();
             var modifiers = parseModifiers();
@@ -4954,6 +5018,9 @@ module ts {
                     return parseExportDeclaration(fullStart, modifiers);
                 }
             }
+
+            //if(sourceFile.fileName.indexOf('lib.d') < 0)
+            //	console.log('#'+fullStart + " "+ token +" "+ SyntaxKind[token])
 
             switch (token) {
                 case SyntaxKind.VarKeyword:
@@ -4972,6 +5039,8 @@ module ts {
                     return parseEnumDeclaration(fullStart, modifiers);
                 case SyntaxKind.ModuleKeyword:
                     return parseModuleDeclaration(fullStart, modifiers);
+                case SyntaxKind.NamespaceKeyword:
+                    return parseNamespaceDeclaration(fullStart, modifiers);
                 case SyntaxKind.ImportKeyword:
                     return parseImportDeclarationOrImportEqualsDeclaration(fullStart, modifiers);
                 default:
