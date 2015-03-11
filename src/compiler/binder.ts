@@ -273,6 +273,9 @@ module ts {
                 case SyntaxKind.ModuleDeclaration:
                     declareModuleMember(node, symbolKind, symbolExcludes);
                     break;
+                case SyntaxKind.NamespaceDeclaration:
+                    declareModuleMember(node, symbolKind, symbolExcludes);
+                    break;
                 case SyntaxKind.SourceFile:
                     if (isExternalModule(<SourceFile>container)) {
                         declareModuleMember(node, symbolKind, symbolExcludes);
@@ -481,6 +484,9 @@ module ts {
                     break;
                 case SyntaxKind.ModuleDeclaration:
                     bindModuleDeclaration(<ModuleDeclaration>node);
+                    break;
+                case SyntaxKind.NamespaceDeclaration:
+                    bindDeclaration(<NamespaceDeclaration>node, SymbolFlags.NamespaceModule, SymbolFlags.NamespaceModuleExcludes, /*isBlockScopeContainer*/ true);
                     break;
                 case SyntaxKind.ImportEqualsDeclaration:
                 case SyntaxKind.NamespaceImport:

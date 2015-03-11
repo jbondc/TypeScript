@@ -2592,6 +2592,7 @@ module ts {
                     write(substitution);
                 }
                 else {
+                    // namespace?
                     writeTextOfNode(currentSourceFile, node);
                 }
             }

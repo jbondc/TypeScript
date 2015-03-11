@@ -1,35 +1,35 @@
 declare module Foo.Bar {
-    export class Hello {
+    class Hello {
         name(): string;
     }
 }
 declare module Foo.Bar {
-    export class World {
+    class World {
     }
-}
-declare module Foo.Bar {
-    export class Conflict {
-    }
-}
-declare module Foo.Bar {
-    export class Conflict {
-    }
-}
-declare module Foo.Bar {
 }
 declare module Foo.Bar {
     class Conflict {
     }
 }
 declare module Foo.Bar {
+}
+declare module Foo.Bar {
+}
+declare module Foo.Bar {
+}
+declare module Foo.Bar {
     module Good.Stuff {
-        export class Something {
+        class Something {
         }
     }
 }
 declare module Foo.Bar {
-    export class a {
+    class a {
     }
-    export interface b {
+    interface b {
+    }
+    function d(): void;
+    enum e {
+        test = 1,
     }
 }

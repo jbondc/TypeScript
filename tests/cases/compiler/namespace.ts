@@ -17,7 +17,7 @@ namespace Foo.Bar {
 }
 
 namespace Foo.Bar {
-    class Conflict { } // TODO: checker should give an error
+    //class Conflict { }
 }
 
 module Foo.Bar {
@@ -25,7 +25,7 @@ module Foo.Bar {
 }
 
 module Foo.Bar {
-    export class Conflict { } // TODO: checker should give an error
+    //export class Conflict { }
 }
 
 module Foo.Bar {
@@ -35,7 +35,7 @@ module Foo.Bar {
         class Something { }
     }
 
-	class Private { }
+    class Private { }
 }
 
 
@@ -44,11 +44,12 @@ namespace Foo.Bar {
 
     interface b {}
 
-    // type c = d;
+    //type c = b;
 
-    // function e() {}
-    // enum f {}
-
+    function d() {}
+    enum e {
+        test = 1
+    }
     //function(){} // TODO: checker should give an error, or parser?
 }
 

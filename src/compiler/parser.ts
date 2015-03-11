@@ -165,6 +165,7 @@ module ts {
                 return visitNode(cbNode, (<SpreadElementExpression>node).expression);
             case SyntaxKind.Block:
             case SyntaxKind.ModuleBlock:
+            case SyntaxKind.NamespaceBlock:
                 return visitNodes(cbNodes, (<Block>node).statements);
             case SyntaxKind.SourceFile:
                 return visitNodes(cbNodes, (<SourceFile>node).statements) ||
@@ -250,6 +251,7 @@ module ts {
             case SyntaxKind.EnumMember:
                 return visitNode(cbNode, (<EnumMember>node).name) ||
                     visitNode(cbNode, (<EnumMember>node).initializer);
+            case SyntaxKind.NamespaceDeclaration:
             case SyntaxKind.ModuleDeclaration:
                 return visitNodes(cbNodes, node.modifiers) ||
                     visitNode(cbNode, (<ModuleDeclaration>node).name) ||
@@ -1698,8 +1700,6 @@ module ts {
             while (!isListTerminator(kind)) {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     var element = parseListElement(kind, parseElement);
-                    if (!element.parent)
-                        element.parent = sourceFile; // why is this not set?
 
                     result.push(element);
 
@@ -4987,7 +4987,7 @@ module ts {
 
             var modifiers = <ModifiersArray>[];
             modifiers.pos = scanner.getStartPos();
-            modifiers.flags = NodeFlags.Export | NodeFlags.Default;
+            modifiers.flags = NodeFlags.Export;
             modifiers.end = modifiers.pos;
 
             switch (token) {
@@ -5020,7 +5020,7 @@ module ts {
             }
 
             //if(sourceFile.fileName.indexOf('lib.d') < 0)
-            //	console.log('#'+fullStart + " "+ token +" "+ SyntaxKind[token])
+            //    console.log('#'+fullStart + " "+ token +" "+ SyntaxKind[token])
 
             switch (token) {
                 case SyntaxKind.VarKeyword:

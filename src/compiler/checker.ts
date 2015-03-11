@@ -10919,26 +10919,24 @@ module ts {
         function getBlockScopedVariableId(n: Identifier): number {
             Debug.assert(!nodeIsSynthesized(n));
 
-            if (n.parent) {
-                // ignore name parts of property access expressions
-                if (n.parent.kind === SyntaxKind.PropertyAccessExpression &&
-                    (<PropertyAccessExpression>n.parent).name === n) {
-                    return undefined;
-                }
-
-                // ignore property names in object binding patterns
-                if (n.parent.kind === SyntaxKind.BindingElement &&
-                    (<BindingElement>n.parent).propertyName === n) {
-                    return undefined;
-                }
-
-                // for names in variable declarations and binding elements try to short circuit and fetch symbol from the node
-                var declarationSymbol: Symbol =
-                    (n.parent.kind === SyntaxKind.VariableDeclaration && (<VariableDeclaration>n.parent).name === n) ||
-                        n.parent.kind === SyntaxKind.BindingElement
-                        ? getSymbolOfNode(n.parent)
-                        : undefined;
+            // ignore name parts of property access expressions
+            if (n.parent.kind === SyntaxKind.PropertyAccessExpression &&
+                (<PropertyAccessExpression>n.parent).name === n) {
+                return undefined;
             }
+
+            // ignore property names in object binding patterns
+            if (n.parent.kind === SyntaxKind.BindingElement &&
+                (<BindingElement>n.parent).propertyName === n) {
+                return undefined;
+            }
+
+            // for names in variable declarations and binding elements try to short circuit and fetch symbol from the node
+            var declarationSymbol: Symbol =
+                (n.parent.kind === SyntaxKind.VariableDeclaration && (<VariableDeclaration>n.parent).name === n) ||
+                    n.parent.kind === SyntaxKind.BindingElement
+                    ? getSymbolOfNode(n.parent)
+                    : undefined;
 
             var symbol = declarationSymbol ||
                 getNodeLinks(n).resolvedSymbol ||
