@@ -2603,24 +2603,19 @@ module ts {
             }
 
             function emitIdentifier(node: Identifier) {
+                if (node.namespace) {
+                    write(node.namespace + '.');
+                }
                 var variableId = getBlockScopedVariableId(node);
                 if (variableId !== undefined && generatedBlockScopeNames) {
                     var text = generatedBlockScopeNames[variableId];
                     if (text) {
-                        if (node.namespace) {
-                            text = node.namespace + '.' + text;
-                        }
                         write(text);
                         return;
                     }
                 }
                 if (!node.parent) {
-                    if (node.namespace) {
-                        write(node.namespace + '.' + node.text);
-                    }
-                    else {
-                        write(node.text);
-                    }
+                    write(node.text);
                 }
                 else if (!isNotExpressionIdentifier(node)) {
                     emitExpressionIdentifier(node);
@@ -3646,7 +3641,7 @@ module ts {
 
             function emitModuleMemberName(node: Declaration) {
                 emitStart(node.name);
-                if (getCombinedNodeFlags(node) & NodeFlags.Export) {
+                if (getCombinedNodeFlags(node) & NodeFlags.Export && !node.namespace) {
                     emitContainingModuleName(node);
                     write(".");
                 }
@@ -4150,13 +4145,18 @@ module ts {
 
                 // For targeting below es6, emit functions-like declaration including arrow function using function keyword.
                 // When targeting ES6, emit arrow function natively in ES6 by omitting function keyword and using fat arrow instead
-                if (!shouldEmitAsArrowFunction(node)) {
+                else if (!shouldEmitAsArrowFunction(node) && !node.namespace) {
                     write("function ");
                 }
 
                 if (node.kind === SyntaxKind.FunctionDeclaration || (node.kind === SyntaxKind.FunctionExpression && node.name)) {
                     emitDeclarationName(node);
                 }
+
+                if (node.namespace) {
+                    write(" = function ");
+                }
+
                 emitSignatureAndBody(node);
                 if (languageVersion < ScriptTarget.ES6 && node.kind === SyntaxKind.FunctionDeclaration && node.parent === currentSourceFile && node.name) {
                     emitExportMemberAssignments((<FunctionDeclaration>node).name);
@@ -4227,7 +4227,7 @@ module ts {
                     emitExpressionFunctionBody(node, <Expression>node.body);
                 }
 
-                if (node.flags & NodeFlags.Export && !(node.flags & NodeFlags.Default)) {
+                if (needsExportEmit(node)) {
                     writeLine();
                     emitStart(node);
                     emitModuleMemberName(node);
@@ -4512,6 +4512,10 @@ module ts {
                 });
             }
 
+            function needsExportEmit(node: Node) {
+                return node.flags & NodeFlags.Export && !(node.flags & NodeFlags.Default) && !node.namespace;
+            }
+
             function emitClassDeclaration(node: ClassDeclaration) {
                 if (node.name.namespace) {
                     emitDeclarationName(node);
@@ -4559,7 +4563,7 @@ module ts {
                 }
                 write(");");
                 emitEnd(node);
-                if (node.flags & NodeFlags.Export && !(node.flags & NodeFlags.Default)) {
+                if (needsExportEmit(node)) {
                     writeLine();
                     emitStart(node);
                     emitModuleMemberName(node);
@@ -4693,7 +4697,7 @@ module ts {
                 emitModuleMemberName(node);
                 write(" = {}));");
                 emitEnd(node);
-                if (node.flags & NodeFlags.Export) {
+                if (node.flags & NodeFlags.Export && !node.namespace) {
                     writeLine();
                     emitStart(node);
                     write("var ");
