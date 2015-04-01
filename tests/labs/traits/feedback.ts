@@ -123,7 +123,7 @@ var AB = (function () {
         return this[trait_A_proto].bar();
     };
 
-    [Symbol('trait_A_proto')] = {
+    AB.prototype[Symbol('trait_A_proto')] = {
         constructor: function () { },
         foo: function () {
             this.bar();
@@ -159,7 +159,7 @@ var DT = (function (_super) {
         return this[trait_D_proto].foo();
     };
 
-    [Symbol('trait_D_proto')] = {
+    DT.prototype[Symbol('trait_D_proto')] = {
         foo() {
             return _super.foo();
         }
