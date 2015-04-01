@@ -113,22 +113,27 @@ var AB = (function () {
 
 // Emits in ES6 (symbols), engine benefit(s) of symbols?
 var AB = (function () {
+    const tA_proto = Symbol('tA_proto'); // import tA;
+    const tB_proto = Symbol('tB_proto'); // import tB;
+
     function AB() {
-        this[trait_A_proto].constructor();
+        this[tA_proto].constructor();
     }
     AB.prototype.foo = function () {
-        return this[trait_A_proto].foo();
+        return this[tA_proto].foo();
     };
     AB.prototype.bar = function () {
-        return this[trait_A_proto].bar();
+        return this[tB_proto].bar();
     };
 
-    AB.prototype[Symbol('trait_A_proto')] = {
+    AB.prototype[tA_proto] = {
         constructor: function () { },
         foo: function () {
             this.bar();
-        },
-        bar: function () {},
+        }
+    }
+    AB.prototype[tB_proto] = {
+        bar: function () { }
     }
     return AB;
 })();
@@ -150,16 +155,19 @@ class DT extends E {
 
   // Emits
 var DT = (function (_super) {
-    __extends(DT, _super);
+    const tD_proto = Symbol('tD_proto'); // import tD;
+
     function DT() {
         _super.apply(this, arguments);
     }
+    __extends(DT, _super);
+
     // Aliasing renames the class property but calls same [trait_D_proto].foo()
     DT.prototype.foo2 = function () {
-        return this[trait_D_proto].foo();
+        return this[tD_proto].foo();
     };
 
-    DT.prototype[Symbol('trait_D_proto')] = {
+    DT.prototype[tD_proto] = {
         foo() {
             return _super.foo();
         }
