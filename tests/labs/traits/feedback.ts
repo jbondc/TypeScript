@@ -89,25 +89,40 @@ class AB {
 
 // Emits in ES5 
 var AB = (function () {
+    // import tA;
+    // import tB;
+
     function AB() {
-        this.trait_A_proto_constructor();
+        this.tA_proto.constructor();
     }
     AB.prototype.foo = function () {
-        return this.trait_A_proto_foo();
+        return this.tA_proto.foo();
     };
     AB.prototype.bar = function () {
-        return this.trait_B_proto_bar();
+        return this.tB_proto.bar();
     };
 
-    // Traits, make non enumerable, non writable?
-    // TODO: Use Object .defineProperty()
-    AB.prototype.trait_A_proto_constructor = function () {
-    };
-    AB.prototype.trait_A_proto_foo = function () {
-        this.bar();
-    };
-    AB.prototype.trait_B_proto_bar = function () {
-    };
+    Object.defineProperty(AB.prototype, 'tA_proto', {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: {
+            constructor: function () { },
+            foo: function () {
+                this.bar();
+            }
+        }
+    });
+
+    Object.defineProperty(AB.prototype, 'tB_proto', {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: {
+            bar: function () { }
+        }
+    }
+
     return AB;
 })();
 
