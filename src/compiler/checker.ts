@@ -3114,7 +3114,7 @@ module ts {
                     resolved.numberIndex
                 ]
             }
-            return []
+            return emptyArray
         }
 
         function getIndexOfObjectOrUnionType(type: Type, kind: IndexKind): ObjectIndex {
@@ -11169,7 +11169,7 @@ module ts {
 
             if (isInsideWithStatementBody(location)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
-                return [];
+                return emptyArray;
             }
 
             populateSymbols();
@@ -11235,7 +11235,7 @@ module ts {
 
             if (isInsideWithStatementBody(location)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
-                return [];
+                return emptyArray;
             }
 
             while (location) {
