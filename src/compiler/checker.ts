@@ -2913,7 +2913,7 @@ namespace ts {
                     return unknownType;
                 }
                 let declaration = <TypeAliasDeclaration>getDeclarationOfKind(symbol, SyntaxKind.TypeAliasDeclaration);
-                let type = getTypeFromTypeNode(declaration.type);
+                let type = getTypeFromTypeNodeAlias(declaration.type, symbol.name);
                 if (popTypeResolution()) {
                     links.typeParameters = getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol);
                     if (links.typeParameters) {
@@ -4222,6 +4222,14 @@ namespace ts {
             return links.resolvedType;
         }
 
+        function getTypeFromTypeNodeAlias(node: TypeNode, symbolName: string): Type {
+            switch (node.kind) {
+                case SyntaxKind.NumberKeyword:
+                    return createIntrinsicType(TypeFlags.Number, symbolName);
+            }
+            return getTypeFromTypeNode(node);
+        }
+
         function getTypeFromTypeNode(node: TypeNode): Type {
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
@@ -4622,11 +4630,12 @@ namespace ts {
                 if (isTypeAny(target)) return Ternary.True;
                 if (source === undefinedType) return Ternary.True;
                 if (source === nullType && target !== undefinedType) return Ternary.True;
-                if (source.flags & TypeFlags.Enum && target === numberType) return Ternary.True;
+                if (source.flags & target.flags & TypeFlags.Number) return Ternary.True;
+                if (source.flags & TypeFlags.Enum && target.flags & TypeFlags.Number) return Ternary.True;
                 if (source.flags & TypeFlags.StringLiteral && target === stringType) return Ternary.True;
                 if (relation === assignableRelation) {
                     if (isTypeAny(source)) return Ternary.True;
-                    if (source === numberType && target.flags & TypeFlags.Enum) return Ternary.True;
+                    if (source.flags & TypeFlags.Number && target.flags & TypeFlags.Enum) return Ternary.True;
                 }
 
                 if (source.flags & TypeFlags.FreshObjectLiteral) {
