@@ -3,9 +3,9 @@ declare type Foo = string;
 >Foo : string
 
 type Bar = number;
->Bar : number
+>Bar : Bar
 
 declare type Baz = Bar;
->Baz : number
->Bar : number
+>Baz : Bar
+>Bar : Bar
 

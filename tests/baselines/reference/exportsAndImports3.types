@@ -43,7 +43,7 @@ export module N {
     }
 }
 export type T = number;
->T : number
+>T : T
 
 export import a = M.x;
 >a : any

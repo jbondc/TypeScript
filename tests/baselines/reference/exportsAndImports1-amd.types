@@ -43,7 +43,7 @@ module N {
     }
 }
 type T = number;
->T : number
+>T : T
 
 import a = M.x;
 >a : any
