@@ -108,6 +108,7 @@ namespace ts {
         let nullType = createIntrinsicType(TypeFlags.Null | TypeFlags.ContainsUndefinedOrNull, "null");
         let unknownType = createIntrinsicType(TypeFlags.Any, "unknown");
         let circularType = createIntrinsicType(TypeFlags.Any, "__circular__");
+        let returnType = createIntrinsicType(TypeFlags.Bottom, "return");
 
         let emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         let emptyGenericType = <GenericType><ObjectType>createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
@@ -1595,8 +1596,11 @@ namespace ts {
                 return writeType(type, globalFlags);
 
                 function writeType(type: Type, flags: TypeFormatFlags) {
-                    // Write undefined/null type as any
-                    if (type.flags & TypeFlags.Intrinsic) {
+                    if (type.flags & TypeFlags.Bottom) {
+                        writer.writeKeyword("return");
+                    }
+                    else if (type.flags & TypeFlags.Intrinsic) {
+                        // Write undefined/null type as any
                         // Special handling for unknown / resolving types, they should show up as any and not unknown or __resolving
                         writer.writeKeyword(!(globalFlags & TypeFormatFlags.WriteOwnNameForAnyLike) && isTypeAny(type)
                             ? "any"
@@ -4236,6 +4240,8 @@ namespace ts {
                     return esSymbolType;
                 case SyntaxKind.VoidKeyword:
                     return voidType;
+                case SyntaxKind.ReturnKeyword:
+                    return returnType;
                 case SyntaxKind.StringLiteral:
                     return getTypeFromStringLiteral(<StringLiteral>node);
                 case SyntaxKind.TypeReference:
@@ -4617,6 +4623,16 @@ namespace ts {
                 if (source === target) return Ternary.True;
                 if (relation === identityRelation) {
                     return isIdenticalTo(source, target);
+                }
+
+                if (target.flags & TypeFlags.Bottom) {
+                    if (relation === assignableRelation) {
+                        if (reportErrors) {
+                            reportRelationError(headMessage, source, target);
+                        }
+                        return Ternary.False;
+                    }
+                    return Ternary.True;
                 }
 
                 if (isTypeAny(target)) return Ternary.True;
