@@ -12803,6 +12803,17 @@ namespace ts {
             let typeWithThis = getTypeWithThisArgument(type);
             let staticType = <ObjectType>getTypeOfSymbol(symbol);
 
+            //console.log(typeWithThis.symbol.members["__constructor"]);
+            let objectConstructor = typeWithThis.symbol.members["__constructor"];
+            if (objectConstructor) {
+                let newConstructor = new Symbol(SymbolFlags.Transient | SymbolFlags.Property, "constructor");
+                newConstructor.declarations = objectConstructor.declarations;
+                getSymbolLinks(newConstructor).type = type;
+
+                //typeWithThis.symbol.members["__constructor"] = newConstructor;
+                symbol.members["__constructor"] = newConstructor;
+            }
+
             let baseTypeNode = getClassExtendsHeritageClauseElement(node);
             if (baseTypeNode) {
                 emitExtends = emitExtends || !isInAmbientContext(node);
